@@ -22,6 +22,30 @@ func (s *Server) HandleGetUsers(w http.ResponseWriter, r *http.Request) error {
 	return WriteJSON(w, http.StatusOK, users)
 }
 
+func (s *Server) HandleGetPosts(w http.ResponseWriter, r *http.Request) error {
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+	posts, err := s.store.GetPosts()
+	if err != nil {
+		return err
+	}
+
+	return WriteJSON(w, http.StatusOK, posts)
+}
+
+func (s *Server) HandleGetComments(w http.ResponseWriter, r *http.Request) error {
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+	comments, err := s.store.GetComments()
+	if err != nil {
+		return err
+	}
+
+	return WriteJSON(w, http.StatusOK, comments)
+}
+
 func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) error {
 	createUserReq := new(CreateUserRequest)
 

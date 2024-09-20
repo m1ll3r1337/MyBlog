@@ -194,23 +194,23 @@ func (s *PostgresStore) CreatePost(post *Post) (int, error) {
 }
 
 func (s *PostgresStore) UpdateUser(id int, user *User) error {
-	_, err := s.db.Query(`UPDATE account SET first_name=$2, last_name=$3, e_mail=$4 WHERE id=$1`,
+	_, err := s.db.Query(`UPDATE users SET username=$2, email=$3 WHERE id=$1`,
 		id, user.Username, user.Email)
 	return err
 }
 
 func (s *PostgresStore) DeleteUser(id int) error {
-	_, err := s.db.Query(`delete from account where id = $1`, id)
+	_, err := s.db.Query(`delete from users where id = $1`, id)
 	return err
 }
 
 func (s *PostgresStore) DeletePost(id int) error {
-	_, err := s.db.Query(`delete from account where id = $1`, id)
+	_, err := s.db.Query(`delete from posts where id = $1`, id)
 	return err
 }
 
 func (s *PostgresStore) DeleteComment(id int) error {
-	_, err := s.db.Query(`delete from account where id = $1`, id)
+	_, err := s.db.Query(`delete from comments where id = $1`, id)
 	return err
 }
 
