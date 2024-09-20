@@ -7,18 +7,24 @@ import (
 )
 
 type Storage interface {
-	CreateUser(username, email, password string) (int, error)
+	CreateUser(*User) (int, error)
 	GetUsers() ([]User, error)
 	GetUserByID(id int) (*User, error)
+	UpdateUser(int, *User) error
+	DeleteUser(int) error
 
-	CreatePost(title, content string, userID int) (int, error)
-	GetAllPosts() ([]Post, error)
+	CreatePost(*Post) (int, error)
+	GetPosts() ([]Post, error)
 	GetPostByID(id int) (*Post, error)
+	UpdatePost(int, *Post) error
+	DeletePost(int) error
 
-	CreateComment(content string, userID, postID int) (int, error)
-	GetAllComments() ([]Comment, error)
+	CreateComment(*Comment) (int, error)
+	GetComments() ([]Comment, error)
 	GetCommentByID(id int) (*Comment, error)
 	GetCommentsByPostID(postID int) ([]*Comment, error)
+	UpdateComment(int, *Comment) error
+	DeleteComment(int) error
 
 	UploadImage(data []byte) error
 	GetAllImages() ([]Image, error)
@@ -128,10 +134,14 @@ func (s *PostgresStore) UploadImage(fileBytes []byte) error {
 	return err
 }
 
-func (s *PostgresStore) CreateUser(username, email, password string) (int, error) {
+func (s *PostgresStore) CreateUser(user *User) (int, error) {
 	query := `INSERT INTO Users (username, email, password) VALUES ($1, $2, $3) RETURNING id`
 	var id int
-	err := s.db.QueryRow(query, username, email, password).Scan(&id)
+	err := s.db.QueryRow(query,
+		user.Username,
+		user.Email,
+		user.Password,
+		).Scan(&id)
 	if err != nil {
 		return 0, err
 	}
@@ -169,17 +179,42 @@ func (s *PostgresStore) GetUserByID(id int) (*User, error) {
 	return &user, nil
 }
 
-func (s *PostgresStore) CreatePost(title, content string, userID int) (int, error) {
+func (s *PostgresStore) CreatePost(post *Post) (int, error) {
 	query := `INSERT INTO Posts (title, content, user_id) VALUES ($1, $2, $3) RETURNING id`
 	var id int
-	err := s.db.QueryRow(query, title, content, userID).Scan(&id)
+	err := s.db.QueryRow(query,
+		post.Title,
+		post.Content,
+		post.UserID,
+	).Scan(&id)
 	if err != nil {
 		return 0, err
 	}
 	return id, nil
 }
 
-func (s *PostgresStore) GetAllPosts() ([]Post, error) {
+func (s *PostgresStore) UpdateUser(id int, user *User) error {
+	_, err := s.db.Query(`UPDATE account SET first_name=$2, last_name=$3, e_mail=$4 WHERE id=$1`,
+		id, user.Username, user.Email)
+	return err
+}
+
+func (s *PostgresStore) DeleteUser(id int) error {
+	_, err := s.db.Query(`delete from account where id = $1`, id)
+	return err
+}
+
+func (s *PostgresStore) DeletePost(id int) error {
+	_, err := s.db.Query(`delete from account where id = $1`, id)
+	return err
+}
+
+func (s *PostgresStore) DeleteComment(id int) error {
+	_, err := s.db.Query(`delete from account where id = $1`, id)
+	return err
+}
+
+func (s *PostgresStore) GetPosts() ([]Post, error) {
 	rows, err := s.db.Query(`SELECT id, title, content, user_id FROM Posts`)
 	if err != nil {
 		return nil, err
@@ -210,17 +245,27 @@ func (s *PostgresStore) GetPostByID(id int) (*Post, error) {
 	return &post, nil
 }
 
-func (s *PostgresStore) CreateComment(content string, userID, postID int) (int, error) {
+func (s *PostgresStore) UpdatePost(id int, post *Post) error {
+	_, err := s.db.Query(`UPDATE account SET first_name=$2, last_name=$3, e_mail=$4 WHERE id=$1`,
+		id, post.Title, post.Content)
+	return err
+}
+
+func (s *PostgresStore) CreateComment(comment *Comment) (int, error) {
 	query := `INSERT INTO Comments (content, user_id, post_id) VALUES ($1, $2, $3) RETURNING id`
 	var id int
-	err := s.db.QueryRow(query, content, userID, postID).Scan(&id)
+	err := s.db.QueryRow(query,
+		comment.Content,
+		comment.UserID,
+		comment.PostID,
+	).Scan(&id)
 	if err != nil {
 		return 0, err
 	}
 	return id, nil
 }
 
-func (s *PostgresStore) GetAllComments() ([]Comment, error) {
+func (s *PostgresStore) GetComments() ([]Comment, error) {
 	rows, err := s.db.Query(`SELECT id, content, user_id, post_id FROM Comments`)
 	if err != nil {
 		return nil, err
@@ -249,6 +294,12 @@ func (s *PostgresStore) GetCommentByID(id int) (*Comment, error) {
 		return nil, err
 	}
 	return &comment, nil
+}
+
+func (s *PostgresStore) UpdateComment(id int, comment *Comment) error {
+	_, err := s.db.Query(`UPDATE account SET first_name=$2, last_name=$3, e_mail=$4 WHERE id=$1`,
+		id, comment.Content)
+	return err
 }
 
 func (s *PostgresStore) CreateImage(data []byte) (int, error) {

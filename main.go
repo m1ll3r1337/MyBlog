@@ -10,7 +10,6 @@ type Server struct {
 	store Storage
 }
 
-
 func main() {
 	store, err := NewPostgresStore()
 	if err != nil {
@@ -18,12 +17,12 @@ func main() {
 	}
 	store.Init()
 	//err = generateSampleData(store.db, 1000)
-	if err != nil {
-		panic(err)
-	}
+	//if err != nil {
+	//	panic(err)
+	//}
 	s := Server{store: store}
 	r := chi.NewRouter()
-	r.Get("/users", s.HandleGetUsers)
+	r.Get("/users",makeHTTPHandleFunc(s.HandleGetUsers))
 	http.ListenAndServe(":8080", r)
 	fmt.Println("Listening on port 8080")
 }
