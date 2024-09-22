@@ -3,6 +3,7 @@ package controllers
 import (
 	"blog/models"
 	"net/http"
+	"strings"
 )
 
 type Users struct {
@@ -25,6 +26,7 @@ func (u Users) Create(w http.ResponseWriter, r *http.Request) error {
 	email := r.FormValue("email")
 	username := r.FormValue("username")
 	password := r.FormValue("password")
+	email = strings.ToLower(email)
 	user, err1 := models.NewUser(username, email, password)
 	if err1 != nil {
 		 return err1
@@ -44,4 +46,20 @@ func (u Users) SignIn(w http.ResponseWriter, r *http.Request) {
 	}
 	data.Email = r.FormValue("email")
 	u.Templates.SignIn.Execute(w, data)
+}
+
+func (u Users) ProcessSignIn(w http.ResponseWriter, r *http.Request) error {
+	var data struct {
+		Email string
+		Password string
+	}
+	data.Email = r.FormValue("email")
+	data.Password = r.FormValue("password")
+	user, err := u.Server.Store.Authenticate(data.Email, data.Password)
+	if err != nil {
+		return err
+	}
+	WriteJSON(w, http.StatusOK, user)
+	u.Templates.SignIn.Execute(w, data)
+	return nil
 }

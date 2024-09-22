@@ -12,6 +12,7 @@ type Storage interface {
 	GetUserByID(id int) (*models.User, error)
 	UpdateUser(int, *models.User) error
 	DeleteUser(int) error
+	Authenticate(string, string) (*models.User, error)
 
 	CreatePost(*models.Post) (int, error)
 	GetPosts() ([]models.Post, error)

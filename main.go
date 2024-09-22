@@ -38,6 +38,7 @@ func main() {
 	r.Get("/signup", usersC.New)
 	r.Post("/signup", controllers.MakeHTTPHandleFunc(usersC.Create))
 	r.Get("/signin", usersC.SignIn)
+	r.Post("/signin",controllers.MakeHTTPHandleFunc(usersC.ProcessSignIn))
 
 	//r.Get("/users", controllers.MakeHTTPHandleFunc(s.HandleGetUsers))
 	//r.Post("/signup", controllers.MakeHTTPHandleFunc(s.handleCreateUser))

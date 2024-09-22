@@ -4,6 +4,9 @@ import (
 	"blog/models"
 	"database/sql"
 	"errors"
+	"fmt"
+	"golang.org/x/crypto/bcrypt"
+	"strings"
 )
 
 func (s *PostgresStore) CreateUsersTable() error {
@@ -26,7 +29,7 @@ func (s *PostgresStore) CreateUser(user *models.User) (int, error) {
 		user.Password,
 	).Scan(&id)
 	if err != nil {
-		return 0, err
+		return -1, err
 	}
 	return id, nil
 }
@@ -71,4 +74,21 @@ func (s *PostgresStore) UpdateUser(id int, user *models.User) error {
 func (s *PostgresStore) DeleteUser(id int) error {
 	_, err := s.db.Query(`delete from users where id = $1`, id)
 	return err
+}
+
+func (s *PostgresStore) Authenticate (email, password string) (*models.User, error){
+	email = strings.ToLower(email)
+	user := &models.User{
+		Email: email,
+	}
+	row := s.db.QueryRow(`SELECT id, password from Users WHERE email = $1`, email)
+	err := row.Scan(&user.ID, &user.Password)
+	if err != nil {
+		return nil, fmt.Errorf("authenticate: %w", err)
+	}
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
+	if err != nil {
+		return nil, fmt.Errorf("authenticate: %w", err)
+	}
+	return user, nil
 }
