@@ -30,9 +30,14 @@ func main() {
 		templates.FS,
 		"signup.gohtml", "tailwind.gohtml",
 	))
+	usersC.Templates.SignIn = views.Must(views.ParseFS(
+		templates.FS,
+		"signin.gohtml", "tailwind.gohtml",
+	))
 
 	r.Get("/signup", usersC.New)
-	r.Post("/signup", controllers.MakeHTTPHandleFunc(s.HandleCreateUser))
+	r.Post("/signup", controllers.MakeHTTPHandleFunc(usersC.Create))
+	r.Get("/signin", usersC.SignIn)
 
 	//r.Get("/users", controllers.MakeHTTPHandleFunc(s.HandleGetUsers))
 	//r.Post("/signup", controllers.MakeHTTPHandleFunc(s.handleCreateUser))

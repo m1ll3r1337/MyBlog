@@ -8,6 +8,7 @@ import (
 type Users struct {
 	Templates struct {
 		New Template
+		SignIn Template
 	}
 	Server *Server
 }
@@ -35,4 +36,12 @@ func (u Users) Create(w http.ResponseWriter, r *http.Request) error {
 	user.ID = id
 	WriteJSON(w, http.StatusOK, user)
 	return nil
+}
+
+func (u Users) SignIn(w http.ResponseWriter, r *http.Request) {
+	var data struct {
+		Email string
+	}
+	data.Email = r.FormValue("email")
+	u.Templates.SignIn.Execute(w, data)
 }
