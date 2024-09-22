@@ -1,17 +1,17 @@
 package main
 
 import (
+	"blog/controllers"
+	"blog/db"
+	"blog/templates"
+	"blog/views"
 	"fmt"
 	"github.com/go-chi/chi/v5"
 	"net/http"
 )
 
-type Server struct {
-	store Storage
-}
-
 func main() {
-	store, err := NewPostgresStore()
+	store, err := db.NewPostgresStore()
 	if err != nil {
 		panic(err)
 	}
@@ -20,26 +20,37 @@ func main() {
 	//if err != nil {
 	//	panic(err)
 	//}
-	s := Server{store: store}
+	s := controllers.Server{Store: store}
 	r := chi.NewRouter()
 
-	r.Get("/users", makeHTTPHandleFunc(s.HandleGetUsers))
-	r.Post("/users", makeHTTPHandleFunc(s.handleCreateUser))
-	//r.Get("/users/{id}", makeHTTPHandleFunc(s.handleGetUserByID))
-	r.Put("/users/{id}", makeHTTPHandleFunc(s.handleUpdateUser))
-	r.Delete("/users/{id}", makeHTTPHandleFunc(s.handleDeleteUser))
+	usersC := controllers.Users{
+		Server: &s,
+	}
+	usersC.Templates.New = views.Must(views.ParseFS(
+		templates.FS,
+		"signup.gohtml", "tailwind.gohtml",
+	))
 
-	r.Get("/posts", makeHTTPHandleFunc(s.HandleGetComments))
-	r.Post("/posts", makeHTTPHandleFunc(s.handleCreatePost))
-	r.Put("/posts/{id}", makeHTTPHandleFunc(s.handleUpdatePost))
-	r.Delete("/posts/{id}", makeHTTPHandleFunc(s.handleDeletePost))
+	r.Get("/signup", usersC.New)
+	r.Post("/signup", controllers.MakeHTTPHandleFunc(s.HandleCreateUser))
 
-	r.Get("/comments", makeHTTPHandleFunc(s.HandleGetComments))
-	r.Post("/comments", makeHTTPHandleFunc(s.handleCreateComment))
-	r.Put("/comments/{id}", makeHTTPHandleFunc(s.handleUpdateComment))
-	r.Delete("/comments/{id}", makeHTTPHandleFunc(s.handleDeleteComment))
+	//r.Get("/users", controllers.MakeHTTPHandleFunc(s.HandleGetUsers))
+	//r.Post("/signup", controllers.MakeHTTPHandleFunc(s.handleCreateUser))
+	////r.Get("/users/{id}", makeHTTPHandleFunc(s.handleGetUserByID))
+	//r.Put("/users/{id}", controllers.MakeHTTPHandleFunc(s.handleUpdateUser))
+	//r.Delete("/users/{id}", controllers.MakeHTTPHandleFunc(s.handleDeleteUser))
+	//
+	//r.Get("/posts", controllers.MakeHTTPHandleFunc(s.HandleGetComments))
+	//r.Post("/posts", controllers.MakeHTTPHandleFunc(s.handleCreatePost))
+	//r.Put("/posts/{id}", controllers.MakeHTTPHandleFunc(s.handleUpdatePost))
+	//r.Delete("/posts/{id}", controllers.MakeHTTPHandleFunc(s.handleDeletePost))
+	//
+	//r.Get("/comments", controllers.MakeHTTPHandleFunc(s.HandleGetComments))
+	//r.Post("/comments", controllers.MakeHTTPHandleFunc(s.handleCreateComment))
+	//r.Put("/comments/{id}", controllers.MakeHTTPHandleFunc(s.handleUpdateComment))
+	//r.Delete("/comments/{id}", controllers.MakeHTTPHandleFunc(s.handleDeleteComment))
 
-	r.Post("/upload", s.HandleUploadImage)
+	//r.Post("/upload", s.HandleUploadImage)
 	http.ListenAndServe(":8080", r)
 	fmt.Println("Listening on port 8080")
 }

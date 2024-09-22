@@ -1,6 +1,8 @@
-package main
+package controllers
 
 import (
+	"blog/db"
+	"blog/models"
 	"encoding/json"
 	"fmt"
 	"github.com/go-chi/chi/v5"
@@ -10,11 +12,15 @@ import (
 	"strconv"
 )
 
+type Server struct {
+	Store db.Storage
+}
+
 func (s *Server) HandleGetUsers(w http.ResponseWriter, r *http.Request) error {
 	if r.Method != "GET" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
-	users, err := s.store.GetUsers()
+	users, err := s.Store.GetUsers()
 	if err != nil {
 		return err
 	}
@@ -26,7 +32,7 @@ func (s *Server) HandleGetPosts(w http.ResponseWriter, r *http.Request) error {
 	if r.Method != "GET" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
-	posts, err := s.store.GetPosts()
+	posts, err := s.Store.GetPosts()
 	if err != nil {
 		return err
 	}
@@ -38,7 +44,7 @@ func (s *Server) HandleGetComments(w http.ResponseWriter, r *http.Request) error
 	if r.Method != "GET" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
-	comments, err := s.store.GetComments()
+	comments, err := s.Store.GetComments()
 	if err != nil {
 		return err
 	}
@@ -46,11 +52,24 @@ func (s *Server) HandleGetComments(w http.ResponseWriter, r *http.Request) error
 	return WriteJSON(w, http.StatusOK, comments)
 }
 
-func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) error {
-	createUserReq := new(CreateUserRequest)
+func (s *Server) HandleCreateUser(w http.ResponseWriter, r *http.Request) error {
 
-	if err := json.NewDecoder(r.Body).Decode(createUserReq); err != nil {
-		return err
+	//
+	//if err := json.NewDecoder(r.Body).Decode(createUserReq); err != nil {
+	//	return err
+	//}
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return nil
+	}
+
+	if err := r.ParseForm(); err != nil {
+		return fmt.Errorf("unable to parse form: %v", err)
+	}
+	createUserReq := models.CreateUserRequest{
+		Email : r.FormValue("email"),
+		Password : r.FormValue("password"),
+		Username : r.FormValue("username"),
 	}
 	if !isValidEmail(createUserReq.Email) {
 		_ = fmt.Errorf("invalid email")
@@ -64,12 +83,12 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) error 
 		return err
 	}
 
-	user, err := NewUser(createUserReq.Username, createUserReq.Email, createUserReq.Password)
+	user, err := models.NewUser(createUserReq.Username, createUserReq.Email, createUserReq.Password)
 	if err != nil {
 		return err
 	}
 
-	id, err := s.store.CreateUser(user)
+	id, err := s.Store.CreateUser(user)
 	if err != nil {
 		return err
 	}
@@ -78,8 +97,8 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) error 
 	return WriteJSON(w, http.StatusOK, user)
 }
 
-func (s *Server) handleCreatePost(w http.ResponseWriter, r *http.Request) error {
-	createPostReq := new(CreatePostRequest)
+func (s *Server) HandleCreatePost(w http.ResponseWriter, r *http.Request) error {
+	createPostReq := new(models.CreatePostRequest)
 
 	if err := json.NewDecoder(r.Body).Decode(createPostReq); err != nil {
 		return err
@@ -94,9 +113,9 @@ func (s *Server) handleCreatePost(w http.ResponseWriter, r *http.Request) error 
 		return err
 	}
 
-	post := NewPost(createPostReq.Title, createPostReq.Content, createPostReq.UserID)
+	post := models.NewPost(createPostReq.Title, createPostReq.Content, createPostReq.UserID)
 
-	id, err := s.store.CreatePost(post)
+	id, err := s.Store.CreatePost(post)
 	if err != nil {
 		return err
 	}
@@ -106,7 +125,7 @@ func (s *Server) handleCreatePost(w http.ResponseWriter, r *http.Request) error 
 }
 
 func (s *Server) handleCreateComment(w http.ResponseWriter, r *http.Request) error {
-	createCommentReq := new(CreateCommentRequest)
+	createCommentReq := new(models.CreateCommentRequest)
 
 	if err := json.NewDecoder(r.Body).Decode(createCommentReq); err != nil {
 		return err
@@ -117,9 +136,9 @@ func (s *Server) handleCreateComment(w http.ResponseWriter, r *http.Request) err
 		return err
 	}
 
-	comment := NewComment(createCommentReq.Content, createCommentReq.UserID, createCommentReq.PostID)
+	comment := models.NewComment(createCommentReq.Content, createCommentReq.UserID, createCommentReq.PostID)
 
-	id, err := s.store.CreateComment(comment)
+	id, err := s.Store.CreateComment(comment)
 	if err != nil {
 		return err
 	}
@@ -133,7 +152,7 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) error 
 	if err1 != nil {
 		return err1
 	}
-	var user User
+	var user models.User
 	err := json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
 		return err
@@ -147,7 +166,7 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) error 
 		return err
 	}
 
-	if err = s.store.UpdateUser(id, &user); err != nil {
+	if err = s.Store.UpdateUser(id, &user); err != nil {
 		return err
 	}
 	return WriteJSON(w, http.StatusOK, map[string]int{"updated": id})
@@ -158,7 +177,7 @@ func (s *Server) handleUpdatePost(w http.ResponseWriter, r *http.Request) error 
 	if err1 != nil {
 		return err1
 	}
-	var post Post
+	var post models.Post
 	err := json.NewDecoder(r.Body).Decode(&post)
 	if err != nil {
 		return err
@@ -173,7 +192,7 @@ func (s *Server) handleUpdatePost(w http.ResponseWriter, r *http.Request) error 
 		return err
 	}
 
-	if err = s.store.UpdatePost(id, &post); err != nil {
+	if err = s.Store.UpdatePost(id, &post); err != nil {
 		return err
 	}
 	return WriteJSON(w, http.StatusOK, map[string]int{"updated": id})
@@ -184,7 +203,7 @@ func (s *Server) handleUpdateComment(w http.ResponseWriter, r *http.Request) err
 	if err1 != nil {
 		return err1
 	}
-	var comment Comment
+	var comment models.Comment
 	err := json.NewDecoder(r.Body).Decode(&comment)
 	if err != nil {
 		return err
@@ -195,8 +214,7 @@ func (s *Server) handleUpdateComment(w http.ResponseWriter, r *http.Request) err
 		return err
 	}
 
-
-	if err = s.store.UpdateComment(id, &comment); err != nil {
+	if err = s.Store.UpdateComment(id, &comment); err != nil {
 		return err
 	}
 	return WriteJSON(w, http.StatusOK, map[string]int{"updated": id})
@@ -207,7 +225,7 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) error 
 	if err != nil {
 		return err
 	}
-	if err = s.store.DeleteUser(id); err != nil {
+	if err = s.Store.DeleteUser(id); err != nil {
 		return err
 	}
 	return WriteJSON(w, http.StatusOK, map[string]int{"deleted": id})
@@ -218,7 +236,7 @@ func (s *Server) handleDeletePost(w http.ResponseWriter, r *http.Request) error 
 	if err != nil {
 		return err
 	}
-	if err = s.store.DeletePost(id); err != nil {
+	if err = s.Store.DeletePost(id); err != nil {
 		return err
 	}
 	return WriteJSON(w, http.StatusOK, map[string]int{"deleted": id})
@@ -229,7 +247,7 @@ func (s *Server) handleDeleteComment(w http.ResponseWriter, r *http.Request) err
 	if err != nil {
 		return err
 	}
-	if err = s.store.DeleteComment(id); err != nil {
+	if err = s.Store.DeleteComment(id); err != nil {
 		return err
 	}
 	return WriteJSON(w, http.StatusOK, map[string]int{"deleted": id})
@@ -248,7 +266,7 @@ func (s *Server) HandleUploadImage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error reading file", http.StatusInternalServerError)
 		return
 	}
-	err = s.store.UploadImage(fileBytes)
+	err = s.Store.UploadImage(fileBytes)
 	if err != nil {
 		http.Error(w, "Error uploading file", http.StatusInternalServerError)
 	}
@@ -263,7 +281,7 @@ func WriteJSON(w http.ResponseWriter, status int, v any) error {
 
 type apiFunc func(w http.ResponseWriter, r *http.Request) error
 
-func makeHTTPHandleFunc(f apiFunc) http.HandlerFunc {
+func MakeHTTPHandleFunc(f apiFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := f(w, r); err != nil {
 			WriteJSON(w, http.StatusBadRequest, err.Error())

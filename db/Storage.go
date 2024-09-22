@@ -1,35 +1,36 @@
-package main
+package db
 
 import (
+	"blog/models"
 	"database/sql"
 	"errors"
 	_ "github.com/lib/pq"
 )
 
 type Storage interface {
-	CreateUser(*User) (int, error)
-	GetUsers() ([]User, error)
-	GetUserByID(id int) (*User, error)
-	UpdateUser(int, *User) error
+	CreateUser(*models.User) (int, error)
+	GetUsers() ([]models.User, error)
+	GetUserByID(id int) (*models.User, error)
+	UpdateUser(int, *models.User) error
 	DeleteUser(int) error
 
-	CreatePost(*Post) (int, error)
-	GetPosts() ([]Post, error)
-	GetPostByID(id int) (*Post, error)
-	UpdatePost(int, *Post) error
+	CreatePost(*models.Post) (int, error)
+	GetPosts() ([]models.Post, error)
+	GetPostByID(id int) (*models.Post, error)
+	UpdatePost(int, *models.Post) error
 	DeletePost(int) error
 
-	CreateComment(*Comment) (int, error)
-	GetComments() ([]Comment, error)
-	GetCommentByID(id int) (*Comment, error)
-	GetCommentsByPostID(postID int) ([]*Comment, error)
-	UpdateComment(int, *Comment) error
+	CreateComment(*models.Comment) (int, error)
+	GetComments() ([]models.Comment, error)
+	GetCommentByID(id int) (*models.Comment, error)
+	GetCommentsByPostID(postID int) ([]*models.Comment, error)
+	UpdateComment(int, *models.Comment) error
 	DeleteComment(int) error
 
 	UploadImage(data []byte) error
-	GetAllImages() ([]Image, error)
-	GetImageByID(id int) (*Image, error)
-	GetImagesByPostID(postID int) ([]*Image, error)
+	GetAllImages() ([]models.Image, error)
+	GetImageByID(id int) (*models.Image, error)
+	GetImagesByPostID(postID int) ([]*models.Image, error)
 
 	LinkPostToImage(postID, imageID int) error
 }
@@ -40,12 +41,12 @@ type PostgresStore struct {
 	db *sql.DB
 }
 
-func (s *PostgresStore) GetCommentsByPostID(postID int) ([]*Comment, error) {
+func (s *PostgresStore) GetCommentsByPostID(postID int) ([]*models.Comment, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (s *PostgresStore) GetImagesByPostID(postID int) ([]*Image, error) {
+func (s *PostgresStore) GetImagesByPostID(postID int) ([]*models.Image, error) {
 	//TODO implement me
 	panic("implement me")
 }
@@ -134,7 +135,7 @@ func (s *PostgresStore) UploadImage(fileBytes []byte) error {
 	return err
 }
 
-func (s *PostgresStore) CreateUser(user *User) (int, error) {
+func (s *PostgresStore) CreateUser(user *models.User) (int, error) {
 	query := `INSERT INTO Users (username, email, password) VALUES ($1, $2, $3) RETURNING id`
 	var id int
 	err := s.db.QueryRow(query,
@@ -148,16 +149,16 @@ func (s *PostgresStore) CreateUser(user *User) (int, error) {
 	return id, nil
 }
 
-func (s *PostgresStore) GetUsers() ([]User, error) {
+func (s *PostgresStore) GetUsers() ([]models.User, error) {
 	rows, err := s.db.Query(`SELECT id, username, email FROM Users`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var users []User
+	var users []models.User
 	for rows.Next() {
-		var user User
+		var user models.User
 		if err = rows.Scan(&user.ID, &user.Username, &user.Email); err != nil {
 			return nil, err
 		}
@@ -166,9 +167,9 @@ func (s *PostgresStore) GetUsers() ([]User, error) {
 	return users, nil
 }
 
-func (s *PostgresStore) GetUserByID(id int) (*User, error) {
+func (s *PostgresStore) GetUserByID(id int) (*models.User, error) {
 	query := `SELECT id, username, email FROM Users WHERE id = $1`
-	var user User
+	var user models.User
 	err := s.db.QueryRow(query, id).Scan(&user.ID, &user.Username, &user.Email)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -179,7 +180,7 @@ func (s *PostgresStore) GetUserByID(id int) (*User, error) {
 	return &user, nil
 }
 
-func (s *PostgresStore) CreatePost(post *Post) (int, error) {
+func (s *PostgresStore) CreatePost(post *models.Post) (int, error) {
 	query := `INSERT INTO Posts (title, content, user_id) VALUES ($1, $2, $3) RETURNING id`
 	var id int
 	err := s.db.QueryRow(query,
@@ -193,7 +194,7 @@ func (s *PostgresStore) CreatePost(post *Post) (int, error) {
 	return id, nil
 }
 
-func (s *PostgresStore) UpdateUser(id int, user *User) error {
+func (s *PostgresStore) UpdateUser(id int, user *models.User) error {
 	_, err := s.db.Query(`UPDATE users SET username=$2, email=$3 WHERE id=$1`,
 		id, user.Username, user.Email)
 	return err
@@ -214,16 +215,16 @@ func (s *PostgresStore) DeleteComment(id int) error {
 	return err
 }
 
-func (s *PostgresStore) GetPosts() ([]Post, error) {
+func (s *PostgresStore) GetPosts() ([]models.Post, error) {
 	rows, err := s.db.Query(`SELECT id, title, content, user_id FROM Posts`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var posts []Post
+	var posts []models.Post
 	for rows.Next() {
-		var post Post
+		var post models.Post
 		if err = rows.Scan(&post.ID, &post.Title, &post.Content, &post.UserID); err != nil {
 			return nil, err
 		}
@@ -232,9 +233,9 @@ func (s *PostgresStore) GetPosts() ([]Post, error) {
 	return posts, nil
 }
 
-func (s *PostgresStore) GetPostByID(id int) (*Post, error) {
+func (s *PostgresStore) GetPostByID(id int) (*models.Post, error) {
 	query := `SELECT id, title, content, user_id FROM Posts WHERE id = $1`
-	var post Post
+	var post models.Post
 	err := s.db.QueryRow(query, id).Scan(&post.ID, &post.Title, &post.Content, &post.UserID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -245,13 +246,13 @@ func (s *PostgresStore) GetPostByID(id int) (*Post, error) {
 	return &post, nil
 }
 
-func (s *PostgresStore) UpdatePost(id int, post *Post) error {
-	_, err := s.db.Query(`UPDATE account SET first_name=$2, last_name=$3, e_mail=$4 WHERE id=$1`,
+func (s *PostgresStore) UpdatePost(id int, post *models.Post) error {
+	_, err := s.db.Query(`UPDATE posts SET title=$2, content=$3 WHERE id=$1`,
 		id, post.Title, post.Content)
 	return err
 }
 
-func (s *PostgresStore) CreateComment(comment *Comment) (int, error) {
+func (s *PostgresStore) CreateComment(comment *models.Comment) (int, error) {
 	query := `INSERT INTO Comments (content, user_id, post_id) VALUES ($1, $2, $3) RETURNING id`
 	var id int
 	err := s.db.QueryRow(query,
@@ -265,16 +266,16 @@ func (s *PostgresStore) CreateComment(comment *Comment) (int, error) {
 	return id, nil
 }
 
-func (s *PostgresStore) GetComments() ([]Comment, error) {
+func (s *PostgresStore) GetComments() ([]models.Comment, error) {
 	rows, err := s.db.Query(`SELECT id, content, user_id, post_id FROM Comments`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var comments []Comment
+	var comments []models.Comment
 	for rows.Next() {
-		var comment Comment
+		var comment models.Comment
 		if err = rows.Scan(&comment.ID, &comment.Content, &comment.UserID, &comment.PostID); err != nil {
 			return nil, err
 		}
@@ -283,9 +284,9 @@ func (s *PostgresStore) GetComments() ([]Comment, error) {
 	return comments, nil
 }
 
-func (s *PostgresStore) GetCommentByID(id int) (*Comment, error) {
+func (s *PostgresStore) GetCommentByID(id int) (*models.Comment, error) {
 	query := `SELECT id, content, user_id, post_id FROM Comments WHERE id = $1`
-	var comment Comment
+	var comment models.Comment
 	err := s.db.QueryRow(query, id).Scan(&comment.ID, &comment.Content, &comment.UserID, &comment.PostID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -296,8 +297,8 @@ func (s *PostgresStore) GetCommentByID(id int) (*Comment, error) {
 	return &comment, nil
 }
 
-func (s *PostgresStore) UpdateComment(id int, comment *Comment) error {
-	_, err := s.db.Query(`UPDATE account SET first_name=$2, last_name=$3, e_mail=$4 WHERE id=$1`,
+func (s *PostgresStore) UpdateComment(id int, comment *models.Comment) error {
+	_, err := s.db.Query(`UPDATE comments SET content=$2 WHERE id=$1`,
 		id, comment.Content)
 	return err
 }
@@ -312,16 +313,16 @@ func (s *PostgresStore) CreateImage(data []byte) (int, error) {
 	return id, nil
 }
 
-func (s *PostgresStore) GetAllImages() ([]Image, error) {
+func (s *PostgresStore) GetAllImages() ([]models.Image, error) {
 	rows, err := s.db.Query(`SELECT id, data FROM Images`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var images []Image
+	var images []models.Image
 	for rows.Next() {
-		var img Image
+		var img models.Image
 		if err := rows.Scan(&img.ID, &img.Data); err != nil {
 			return nil, err
 		}
@@ -330,9 +331,9 @@ func (s *PostgresStore) GetAllImages() ([]Image, error) {
 	return images, nil
 }
 
-func (s *PostgresStore) GetImageByID(id int) (*Image, error) {
+func (s *PostgresStore) GetImageByID(id int) (*models.Image, error) {
 	query := `SELECT id, data FROM Images WHERE id = $1`
-	var img Image
+	var img models.Image
 	err := s.db.QueryRow(query, id).Scan(&img.ID, &img.Data)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
