@@ -2,6 +2,7 @@ package views
 
 import (
 	"fmt"
+	"github.com/gorilla/csrf"
 	"html/template"
 	"io/fs"
 	"log"
@@ -16,32 +17,51 @@ func Must(t Template, err error) Template {
 }
 
 func ParseFS(fs fs.FS, pattern ...string) (Template, error) {
-	t, err := template.ParseFS(fs, pattern...)
+	t := template.New(pattern[0])
+	t = t.Funcs(
+		template.FuncMap{
+			"csrfField": func() (template.HTML, error) {
+				return "", fmt.Errorf("csrf field not implemented")
+			},
+		})
+
+	t, err := t.ParseFS(fs, pattern...)
 	if err != nil {
 		return Template{}, fmt.Errorf("Error parsing template: %w", err)
 	}
+
 	return Template{
 		t,
 	}, nil
 }
 
-func Parse(filepath string) (Template, error) {
-	t, err := template.ParseFiles(filepath)
-	if err != nil {
-		return Template{}, fmt.Errorf("Error parsing template: %w", err)
-	}
-	return Template{
-		t,
-	}, nil
-}
+//func Parse(filepath string) (Template, error) {
+//	t, err := template.ParseFiles(filepath)
+//	if err != nil {
+//		return Template{}, fmt.Errorf("Error parsing template: %w", err)
+//	}
+//	return Template{
+//		t,
+//	}, nil
+//}
 
 type Template struct {
 	htmlTpl *template.Template
 }
 
-func (t Template) Execute(w http.ResponseWriter, data interface{}) {
+func (t Template) Execute(w http.ResponseWriter, r *http.Request ,data interface{}) {
+	tpl, err := t.htmlTpl.Clone()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	tpl = tpl.Funcs(template.FuncMap{
+		"csrfField": func() template.HTML {
+			return csrf.TemplateField(r)
+		},
+	})
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	err := t.htmlTpl.Execute(w, data)
+	err = tpl.Execute(w, data)
 	if err != nil {
 		log.Printf("executing template: %v", err)
 		http.Error(w, "Error executing the template", http.StatusInternalServerError)

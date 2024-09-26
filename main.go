@@ -3,10 +3,12 @@ package main
 import (
 	"blog/controllers"
 	"blog/db"
-	"blog/templates"
+	"blog/models/templates"
 	"blog/views"
 	"fmt"
 	"github.com/go-chi/chi/v5"
+	"github.com/gorilla/csrf"
+	"github.com/gorilla/securecookie"
 	"net/http"
 )
 
@@ -39,6 +41,7 @@ func main() {
 	r.Post("/signup", controllers.MakeHTTPHandleFunc(usersC.Create))
 	r.Get("/signin", usersC.SignIn)
 	r.Post("/signin",controllers.MakeHTTPHandleFunc(usersC.ProcessSignIn))
+	r.Get("/users/me", controllers.MakeHTTPHandleFunc(usersC.CurrentUser))
 
 	//r.Get("/users", controllers.MakeHTTPHandleFunc(s.HandleGetUsers))
 	//r.Post("/signup", controllers.MakeHTTPHandleFunc(s.handleCreateUser))
@@ -57,6 +60,8 @@ func main() {
 	//r.Delete("/comments/{id}", controllers.MakeHTTPHandleFunc(s.handleDeleteComment))
 
 	//r.Post("/upload", s.HandleUploadImage)
-	http.ListenAndServe(":8080", r)
+	key := securecookie.GenerateRandomKey(32)
+	mw := csrf.Protect(key, csrf.Secure(false))
 	fmt.Println("Listening on port 8080")
+	http.ListenAndServe(":8080", mw(r))
 }

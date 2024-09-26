@@ -7,7 +7,7 @@
 
         <form action="/signup" method="post">
             <div class="hidden">
-                {{.CSRF}}
+                {{csrfField}}
             </div>
             <div class="py-2">
                 <label for="email" class="text-small font-semibold text-gray-800">Email Address</label>

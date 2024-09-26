@@ -2,13 +2,14 @@ package controllers
 
 import (
 	"blog/models"
+	"fmt"
 	"net/http"
 	"strings"
 )
 
 type Users struct {
 	Templates struct {
-		New Template
+		New    Template
 		SignIn Template
 	}
 	Server *Server
@@ -19,7 +20,7 @@ func (u Users) New(w http.ResponseWriter, r *http.Request) {
 		Email string
 	}
 	data.Email = r.FormValue("email")
-	u.Templates.New.Execute(w, data)
+	u.Templates.New.Execute(w, r, data)
 }
 
 func (u Users) Create(w http.ResponseWriter, r *http.Request) error {
@@ -29,7 +30,7 @@ func (u Users) Create(w http.ResponseWriter, r *http.Request) error {
 	email = strings.ToLower(email)
 	user, err1 := models.NewUser(username, email, password)
 	if err1 != nil {
-		 return err1
+		return err1
 	}
 	id, err := u.Server.Store.CreateUser(user)
 	if err != nil {
@@ -45,12 +46,12 @@ func (u Users) SignIn(w http.ResponseWriter, r *http.Request) {
 		Email string
 	}
 	data.Email = r.FormValue("email")
-	u.Templates.SignIn.Execute(w, data)
+	u.Templates.SignIn.Execute(w, r, data)
 }
 
 func (u Users) ProcessSignIn(w http.ResponseWriter, r *http.Request) error {
 	var data struct {
-		Email string
+		Email    string
 		Password string
 	}
 	data.Email = r.FormValue("email")
@@ -59,7 +60,23 @@ func (u Users) ProcessSignIn(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	cookie := http.Cookie{
+		Name:     "email",
+		Value:    user.Email,
+		Path:     "/",
+		HttpOnly: true,
+	}
+	http.SetCookie(w, &cookie)
 	WriteJSON(w, http.StatusOK, user)
-	u.Templates.SignIn.Execute(w, data)
+
+	return nil
+}
+
+func (u Users) CurrentUser(w http.ResponseWriter, r *http.Request) error {
+	cookie, err := r.Cookie("email")
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(w, cookie.Value)
 	return nil
 }
