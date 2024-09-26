@@ -6,6 +6,9 @@
         </h1>
 
         <form action="/signup" method="post">
+            <div class="hidden">
+                {{.CSRF}}
+            </div>
             <div class="py-2">
                 <label for="email" class="text-small font-semibold text-gray-800">Email Address</label>
                 <input name="email" id="email" type="email" placeholder="Email Address"
