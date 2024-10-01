@@ -49,13 +49,7 @@ func (u Users) Create(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/signin", http.StatusFound)
 		return
 	}
-	cookie := http.Cookie{
-		Name:     "session",
-		Value: session.Token,
-		Path: "/",
-		HttpOnly: true,
-	}
-	http.SetCookie(w, &cookie)
+	setCookie(w, CookieSession, session.Token)
 	http.Redirect(w, r, "/users/me", http.StatusFound)
 }
 
@@ -80,24 +74,23 @@ func (u Users) ProcessSignIn(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Wrong credentials", http.StatusInternalServerError)
 		return
 	}
-	cookie := http.Cookie{
-		Name:     "email",
-		Value:    user.Email,
-		Path:     "/",
-		HttpOnly: true,
+	session, err := u.SessionService.Create(user.ID)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, "Wrong credentials", http.StatusInternalServerError)
+		return
 	}
-	http.SetCookie(w, &cookie)
-	//WriteJSON(w, http.StatusOK, user)
+	setCookie(w, CookieSession, session.Token)
 }
 
 func (u Users) CurrentUser(w http.ResponseWriter, r *http.Request) {
-	token, err := r.Cookie("session")
+	token, err := readCookie(r, CookieSession)
 	if err != nil {
 		log.Println(err)
 		http.Redirect(w, r, "/signin", http.StatusFound)
 		return
 	}
-	user, err := u.SessionService.User(token.Value)
+	user, err := u.SessionService.User(token)
 	if err != nil {
 		log.Println(err)
 		http.Redirect(w, r, "/signin", http.StatusFound)
