@@ -1,8 +1,8 @@
 package controllers
 
 import (
-	"blog/db"
 	"blog/models"
+	"blog/models/db"
 	"encoding/json"
 	"fmt"
 	"github.com/go-chi/chi/v5"

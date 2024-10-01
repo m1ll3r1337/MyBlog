@@ -1,14 +1,5 @@
 package models
 
-import	"golang.org/x/crypto/bcrypt"
-
-
-type User struct {
-	ID int `json:"id"`
-	Username string `json:"username"`
-	Email string `json:"email"`
-	Password string `json:"password"`
-}
 
 type Post struct {
 	ID int `json:"id"`
@@ -27,6 +18,14 @@ type Comment struct {
 type Image struct {
 	ID    int    `json:"id"`
 	Data []byte `json:"bytea"`
+}
+
+type Session struct {
+	ID int `json:"id"`
+	UserID int `json:"user_id"`
+	// Token is only set when creating a new session. When look up a session this will be left empty
+	Token string `json:"token"`
+	TokenHash string `json:"token_hash"`
 }
 
 type CreateUserRequest struct {
@@ -50,18 +49,6 @@ type CreateCommentRequest struct {
 type CreateImageRequest struct {
 	ID int `json:"id"`
 	Data []byte `json:"bytea"`
-}
-
-func NewUser(username, email, password string) (*User, error) {
-	encpw, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		return nil, err
-	}
-	return &User{
-		Username: username,
-		Email: email,
-		Password: string(encpw),
-	}, nil
 }
 
 func NewPost(title, content string, userID int ) *Post {

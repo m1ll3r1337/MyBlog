@@ -2,9 +2,10 @@ package main
 
 import (
 	"blog/controllers"
-	"blog/db"
+	"blog/models"
 	"blog/models/templates"
 	"blog/views"
+	"database/sql"
 	"fmt"
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/csrf"
@@ -13,20 +14,28 @@ import (
 )
 
 func main() {
-	store, err := db.NewPostgresStore()
-	if err != nil {
-		panic(err)
-	}
-	store.Init()
+	//store, err := db.NewPostgresStore()
+	//if err != nil {
+	//	panic(err)
+	//}
+	//store.Init()
 	//err = generateSampleData(store.db, 1000)
 	//if err != nil {
 	//	panic(err)
 	//}
-	s := controllers.Server{Store: store}
+	//s := controllers.Server{Store: store}
 	r := chi.NewRouter()
+	connStr := "user=postgres dbname=postgres password=balls sslmode=disable"
+	db, err := sql.Open("postgres", connStr)
+	if err != nil {
+		panic(err)
+	}
 
+	userService := models.UserService{
+		DB: db,
+	}
 	usersC := controllers.Users{
-		Server: &s,
+		UserService: &userService,
 	}
 	usersC.Templates.New = views.Must(views.ParseFS(
 		templates.FS,

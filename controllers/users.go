@@ -12,7 +12,7 @@ type Users struct {
 		New    Template
 		SignIn Template
 	}
-	Server *Server
+	UserService *models.UserService
 }
 
 func (u Users) New(w http.ResponseWriter, r *http.Request) {
@@ -32,7 +32,7 @@ func (u Users) Create(w http.ResponseWriter, r *http.Request) error {
 	if err1 != nil {
 		return err1
 	}
-	id, err := u.Server.Store.CreateUser(user)
+	id, err := u.UserService.CreateUser(user)
 	if err != nil {
 		return err
 	}
@@ -56,7 +56,7 @@ func (u Users) ProcessSignIn(w http.ResponseWriter, r *http.Request) error {
 	}
 	data.Email = r.FormValue("email")
 	data.Password = r.FormValue("password")
-	user, err := u.Server.Store.Authenticate(data.Email, data.Password)
+	user, err := u.UserService.Authenticate(data.Email, data.Password)
 	if err != nil {
 		return err
 	}

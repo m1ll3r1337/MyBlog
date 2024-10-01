@@ -6,6 +6,7 @@ import (
 	_ "github.com/lib/pq"
 )
 
+// TODO: postgres config env
 type Storage interface {
 	CreateUser(*models.User) (int, error)
 	GetUsers() ([]models.User, error)
@@ -51,19 +52,19 @@ func (s *PostgresStore) GetImagesByPostID(postID int) ([]*models.Image, error) {
 	panic("implement me")
 }
 
-func NewPostgresStore() (*PostgresStore, error) {
-	connStr := "user=postgres dbname=postgres password=balls sslmode=disable"
-	db, err := sql.Open("postgres", connStr)
-	if err != nil {
-		return nil, err
-	}
-	if err = db.Ping(); err != nil {
-		return nil, err
-	}
-	return &PostgresStore{
-		db: db,
-	}, nil
-}
+//func NewPostgresStore() (*PostgresStore, error) {
+//	connStr := "user=postgres dbname=postgres password=balls sslmode=disable"
+//	db, err := sql.Open("postgres", connStr)
+//	if err != nil {
+//		return nil, err
+//	}
+//	if err = db.Ping(); err != nil {
+//		return nil, err
+//	}
+//	return &PostgresStore{
+//		db: db,
+//	}, nil
+//}
 
 func (s *PostgresStore) Init() {
 	s.CreateUsersTable()
@@ -71,6 +72,7 @@ func (s *PostgresStore) Init() {
 	s.CreateCommentsTable()
 	s.CreateImagesTable()
 	s.CreatePostsImagesTable()
+	s.CreateSessionsTable()
 }
 
 func (s *PostgresStore) CreatePostsImagesTable() error {
