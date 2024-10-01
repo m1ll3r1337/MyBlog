@@ -24,8 +24,12 @@ func (ss *SessionService) CreateSessionsTable() error {
 	return err
 }
 
-func (ss *SessionService) CreateSession(userID int) (*Session, error) {
+func (ss *SessionService) Create(userID int) (*Session, error) {
 	// TODO: Create the session token
 	// TODO: Implement SessionService.Create
+	return nil, nil
+}
+
+func (ss *SessionService) User(token string) (*User, error) {
 	return nil, nil
 }
