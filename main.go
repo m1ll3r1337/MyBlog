@@ -5,7 +5,6 @@ import (
 	"blog/models"
 	"blog/models/templates"
 	"blog/views"
-	"database/sql"
 	"fmt"
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/csrf"
@@ -25,8 +24,8 @@ func main() {
 	//}
 	//s := controllers.Server{Store: store}
 	r := chi.NewRouter()
-	connStr := "user=postgres dbname=postgres password=balls sslmode=disable"
-	db, err := sql.Open("postgres", connStr)
+	db, err := models.Open(models.DefaultPostgresConfig())
+	defer db.Close()
 	if err != nil {
 		panic(err)
 	}
@@ -34,6 +33,7 @@ func main() {
 	userService := models.UserService{
 		DB: db,
 	}
+	userService.CreateUsersTable()
 	usersC := controllers.Users{
 		UserService: &userService,
 	}
@@ -47,10 +47,10 @@ func main() {
 	))
 
 	r.Get("/signup", usersC.New)
-	r.Post("/signup", controllers.MakeHTTPHandleFunc(usersC.Create))
+	r.Post("/signup", usersC.Create)
 	r.Get("/signin", usersC.SignIn)
-	r.Post("/signin",controllers.MakeHTTPHandleFunc(usersC.ProcessSignIn))
-	r.Get("/users/me", controllers.MakeHTTPHandleFunc(usersC.CurrentUser))
+	r.Post("/signin",usersC.ProcessSignIn)
+	r.Get("/users/me", usersC.CurrentUser)
 
 	//r.Get("/users", controllers.MakeHTTPHandleFunc(s.HandleGetUsers))
 	//r.Post("/signup", controllers.MakeHTTPHandleFunc(s.handleCreateUser))
