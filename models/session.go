@@ -1,6 +1,17 @@
 package models
 
-import "database/sql"
+import (
+	"blog/rand"
+	"crypto/sha256"
+	"database/sql"
+	"encoding/base64"
+	"errors"
+	"fmt"
+)
+
+const (
+	MinBytesPerToken = 32
+)
 
 type Session struct {
 	ID int `json:"id"`
@@ -12,6 +23,7 @@ type Session struct {
 
 type SessionService struct {
 	DB *sql.DB
+	BytesPerToken int
 }
 
 func (ss *SessionService) CreateSessionsTable() error {
@@ -25,11 +37,39 @@ func (ss *SessionService) CreateSessionsTable() error {
 }
 
 func (ss *SessionService) Create(userID int) (*Session, error) {
-	// TODO: Create the session token
-	// TODO: Implement SessionService.Create
-	return nil, nil
+	bytesPerToken := ss.BytesPerToken
+	if bytesPerToken < MinBytesPerToken {
+		bytesPerToken = MinBytesPerToken
+	}
+	token, err := rand.String(bytesPerToken)
+	if err != nil {
+		return nil, fmt.Errorf("create: %w", err)
+	}
+	session := Session{
+		UserID: userID,
+		Token: token,
+		TokenHash: ss.hash(token),
+	}
+	row := ss.DB.QueryRow(`UPDATE Sessions SET token_hash = $2 WHERE user_id = $1`,
+		session.UserID, session.TokenHash)
+	err = row.Scan(&session.ID)
+	if errors.Is(err, sql.ErrNoRows) {
+		row = ss.DB.QueryRow(`INSERT INTO Sessions (user_id, token_hash) VALUES ($1, $2)
+                                           returning id`, userID, session.TokenHash)
+		err = row.Scan(&session.ID)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("create: %w", err)
+	}
+
+	return &session, nil
 }
 
 func (ss *SessionService) User(token string) (*User, error) {
 	return nil, nil
+}
+
+func (ss *SessionService) hash(token string) string {
+	tokenHash := sha256.Sum256([]byte(token))
+	return base64.URLEncoding.EncodeToString(tokenHash[:])
 }
