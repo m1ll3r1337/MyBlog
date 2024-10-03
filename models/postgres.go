@@ -35,6 +35,6 @@ type PostgresConfig struct {
 }
 
 func (cfg PostgresConfig) ConnectionString() string {
-	return fmt.Sprintf("host %s port %s user %s dbname=%s sslmode=%s",
-		cfg.Host, cfg.Port, cfg.User, cfg.Database, cfg.SSLMode)
+	return fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.Database, cfg.SSLMode)
 }
