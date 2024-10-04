@@ -31,19 +31,6 @@ func NewUser(username, email, password string) (*User, error) {
 	}, nil
 }
 
-
-
-func (us *UserService) CreateUsersTable() error {
-	query := `CREATE TABLE IF NOT EXISTS Users (
-			  id SERIAL PRIMARY KEY, 
-			  username VARCHAR(255) NOT NULL,
-			  email VARCHAR(255) UNIQUE NOT NULL,
-			  password VARCHAR(255) NOT NULL
-    )`
-	_, err := us.DB.Exec(query)
-	return err
-}
-
 func (us *UserService) CreateUser(user *User) (int, error) {
 	query := `INSERT INTO Users (username, email, password) VALUES ($1, $2, $3) RETURNING id`
 	var id int

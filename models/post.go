@@ -24,18 +24,6 @@ func NewPost(title, content string, userID int ) *Post {
 	}
 }
 
-func (ps *PostService) CreatePostsTable() error {
-	query := `CREATE TABLE IF NOT EXISTS Posts (
-			  id SERIAL PRIMARY KEY, 
-			  title VARCHAR(255) NOT NULL,
-			  content TEXT NOT NULL, 
-			  user_id INT,
-			  FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE
-	)`
-	_, err := ps.DB.Exec(query)
-	return err
-}
-
 func (ps *PostService) CreatePost(post *Post) (int, error) {
 	query := `INSERT INTO Posts (title, content, user_id) VALUES ($1, $2, $3) RETURNING id`
 	var id int
@@ -92,20 +80,3 @@ func (ps *PostService) DeletePost(id int) error {
 	return err
 }
 
-func (ps *PostService) LinkPostToImage(postID, imageID int) error {
-	query := `INSERT INTO Posts_Images (post_id, image_id) VALUES ($1, $2)`
-	_, err := ps.DB.Exec(query, postID, imageID)
-	return err
-}
-
-func (ps *PostService) CreatePostsImagesTable() error {
-	query := `CREATE TABLE IF NOT EXISTS Posts_Images (
-			  post_id INT,
-			  image_id INT,
-			  PRIMARY KEY (post_id, image_id),
-			  FOREIGN KEY (post_id) REFERENCES Posts(id) ON DELETE CASCADE,
-		 	  FOREIGN KEY (image_id) REFERENCES Images(id) ON DELETE CASCADE
-	)`
-	_, err := ps.DB.Exec(query)
-	return err
-}

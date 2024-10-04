@@ -26,7 +26,7 @@ func main() {
 	sessionService := models.SessionService{
 		DB: db,
 	}
-	userService.CreateUsersTable()
+
 	usersC := controllers.Users{
 		UserService: &userService,
 		SessionService: &sessionService,
@@ -40,7 +40,7 @@ func main() {
 		templates.FS,
 		"signin.gohtml", "tailwind.gohtml",
 	))
-
+	fmt.Println(models.DefaultPostgresConfig().ConnectionString())
 	r.Get("/signup", usersC.New)
 	r.Post("/signup", usersC.Create)
 	r.Get("/signin", usersC.SignIn)

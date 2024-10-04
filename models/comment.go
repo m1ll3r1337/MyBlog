@@ -24,19 +24,6 @@ func NewComment(content string, userID, postID int) *Comment {
 	}
 }
 
-func (cs *CommentService) CreateCommentsTable() error {
-	query := `CREATE TABLE IF NOT EXISTS Comments (
-			  id SERIAL PRIMARY KEY, 
-			  content TEXT NOT NULL,
-			  user_id INT,
-			  post_id INT,
-			  FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE,
-			  FOREIGN KEY (post_id) REFERENCES Posts(id) ON DELETE CASCADE
-	)`
-	_, err := cs.DB.Exec(query)
-	return err
-}
-
 func (cs *CommentService) CreateComment(comment *Comment) (int, error) {
 	query := `INSERT INTO Comments (content, user_id, post_id) VALUES ($1, $2, $3) RETURNING id`
 	var id int

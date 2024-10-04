@@ -14,16 +14,6 @@ type ImageService struct {
 	DB *sql.DB
 }
 
-
-func (is *ImageService) CreateImagesTable() error {
-	query := `CREATE TABLE IF NOT EXISTS Images (
-			  id SERIAL PRIMARY KEY, 
-			  data BYTEA NOT NULL
-	)`
-	_, err := is.DB.Exec(query)
-	return err
-}
-
 func (is *ImageService) CreateImage(data []byte) (int, error) {
 	query := `INSERT INTO Images (data) VALUES ($1) RETURNING id`
 	var id int

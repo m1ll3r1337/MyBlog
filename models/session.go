@@ -25,16 +25,6 @@ type SessionService struct {
 	BytesPerToken int
 }
 
-func (ss *SessionService) CreateSessionsTable() error {
-	query := `CREATE TABLE IF NOT EXISTS Sessions (
-			  id SERIAL PRIMARY KEY, 
-			  user_id int UNIQUE not null, 
-			  token_hash text unique not null
-    )`
-	_, err := ss.DB.Exec(query)
-	return err
-}
-
 func (ss *SessionService) Create(userID int) (*Session, error) {
 	bytesPerToken := ss.BytesPerToken
 	if bytesPerToken < MinBytesPerToken {
