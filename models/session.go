@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
-	"errors"
 	"fmt"
 )
 
@@ -14,15 +13,15 @@ const (
 )
 
 type Session struct {
-	ID int `json:"id"`
+	ID     int `json:"id"`
 	UserID int `json:"user_id"`
 	// Token is only set when creating a new session. When look up a session this will be left empty
-	Token string `json:"token"`
+	Token     string `json:"token"`
 	TokenHash string `json:"token_hash"`
 }
 
 type SessionService struct {
-	DB *sql.DB
+	DB            *sql.DB
 	BytesPerToken int
 }
 
@@ -46,18 +45,13 @@ func (ss *SessionService) Create(userID int) (*Session, error) {
 		return nil, fmt.Errorf("create: %w", err)
 	}
 	session := Session{
-		UserID: userID,
-		Token: token,
+		UserID:    userID,
+		Token:     token,
 		TokenHash: ss.hash(token),
 	}
-	row := ss.DB.QueryRow(`UPDATE Sessions SET token_hash = $2 WHERE user_id = $1`,
-		session.UserID, session.TokenHash)
+	row := ss.DB.QueryRow(`INSERT INTO sessions (user_id, token_hash) VALUES ($1, $2) 
+		ON conflict (user_id) DO UPDATE SET token_hash = $2 RETURNING id`, userID, session.Token)
 	err = row.Scan(&session.ID)
-	if errors.Is(err, sql.ErrNoRows) {
-		row = ss.DB.QueryRow(`INSERT INTO Sessions (user_id, token_hash) VALUES ($1, $2)
-                                           returning id`, userID, session.TokenHash)
-		err = row.Scan(&session.ID)
-	}
 	if err != nil {
 		return nil, fmt.Errorf("create: %w", err)
 	}
@@ -68,13 +62,10 @@ func (ss *SessionService) Create(userID int) (*Session, error) {
 func (ss *SessionService) User(token string) (*User, error) {
 	tokenHash := ss.hash(token)
 	var user User
-	row := ss.DB.QueryRow(`SELECT user_id FROM Sessions WHERE token_hash = $1;`, tokenHash)
-	err := row.Scan(&user.ID)
-	if err != nil {
-		return nil, fmt.Errorf("user: %w", err)
-	}
-	row = ss.DB.QueryRow(`SELECT email, password FROM Users WHERE id = $1;`, user.ID)
-	err = row.Scan(&user.Email, &user.Password)
+	row := ss.DB.QueryRow(`SELECT Users.id, Users.email, Users.password
+				FROM  Sessions JOIN Users ON Users.id = sessions.user_id 
+				WHERE sessions.token_hash = $1`, tokenHash)
+	err := row.Scan(&user.ID, &user.Email, &user.Password)
 	if err != nil {
 		return nil, fmt.Errorf("user: %w", err)
 	}
