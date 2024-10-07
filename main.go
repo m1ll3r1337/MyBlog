@@ -13,20 +13,29 @@ import (
 )
 
 func main() {
-	r := chi.NewRouter()
+	//Setup db
 	db, err := models.Open(models.DefaultPostgresConfig())
 	defer db.Close()
 	if err != nil {
 		panic(err)
 	}
-
+	//Setup services
 	userService := models.UserService{
 		DB: db,
 	}
 	sessionService := models.SessionService{
 		DB: db,
 	}
+	//Setup middleware
 
+	umw := controllers.UserMiddleware{
+		SessionService: &sessionService,
+	}
+
+
+	key := securecookie.GenerateRandomKey(32)
+	csrfMw := csrf.Protect(key, csrf.Secure(false))
+	//Setup controllers
 	usersC := controllers.Users{
 		UserService: &userService,
 		SessionService: &sessionService,
@@ -40,16 +49,21 @@ func main() {
 		templates.FS,
 		"signin.gohtml", "tailwind.gohtml",
 	))
-	fmt.Println(models.DefaultPostgresConfig().ConnectionString())
+	//Setup router
+	r := chi.NewRouter()
 	r.Get("/signup", usersC.New)
 	r.Post("/signup", usersC.Create)
 	r.Get("/signin", usersC.SignIn)
 	r.Post("/signin",usersC.ProcessSignIn)
 	r.Post("/signout", usersC.ProcessSignOut)
-	r.Get("/users/me", usersC.CurrentUser)
+	r.Route("/users/me", func(r chi.Router) {
+		r.Use(umw.RequireUser)
+		r.Get("/", usersC.CurrentUser)
+	})
 
-	key := securecookie.GenerateRandomKey(32)
-	mw := csrf.Protect(key, csrf.Secure(false))
+	r.Use(csrfMw, umw.SetUser)
+
+	//Start the server
 	fmt.Println("Listening on port 8080")
-	http.ListenAndServe(":8080", mw(r))
+	http.ListenAndServe(":8080", r)
 }

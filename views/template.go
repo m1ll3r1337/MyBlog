@@ -1,6 +1,8 @@
 package views
 
 import (
+	"blog/context"
+	"blog/models"
 	"fmt"
 	"github.com/gorilla/csrf"
 	"html/template"
@@ -35,16 +37,6 @@ func ParseFS(fs fs.FS, pattern ...string) (Template, error) {
 	}, nil
 }
 
-//func Parse(filepath string) (Template, error) {
-//	t, err := template.ParseFiles(filepath)
-//	if err != nil {
-//		return Template{}, fmt.Errorf("Error parsing template: %w", err)
-//	}
-//	return Template{
-//		t,
-//	}, nil
-//}
-
 type Template struct {
 	htmlTpl *template.Template
 }
@@ -58,6 +50,9 @@ func (t Template) Execute(w http.ResponseWriter, r *http.Request ,data interface
 	tpl = tpl.Funcs(template.FuncMap{
 		"csrfField": func() template.HTML {
 			return csrf.TemplateField(r)
+		},
+		"currentUser": func() *models.User {
+			return context.User(r.Context())
 		},
 	})
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
