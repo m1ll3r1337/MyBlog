@@ -25,6 +25,9 @@ func ParseFS(fs fs.FS, pattern ...string) (Template, error) {
 			"csrfField": func() (template.HTML, error) {
 				return "", fmt.Errorf("csrf field not implemented")
 			},
+			"currentUser": func() (*models.User, error) {
+				return nil, fmt.Errorf("currentUser not implemented")
+			},
 		})
 
 	t, err := t.ParseFS(fs, pattern...)

@@ -9,9 +9,9 @@ import (
 )
 
 type User struct {
-	ID int `json:"id"`
+	ID       int    `json:"id"`
 	Username string `json:"username"`
-	Email string `json:"email"`
+	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
@@ -26,7 +26,7 @@ func NewUser(username, email, password string) (*User, error) {
 	}
 	return &User{
 		Username: username,
-		Email: email,
+		Email:    email,
 		Password: string(encpw),
 	}, nil
 }
@@ -87,7 +87,7 @@ func (us *UserService) DeleteUser(id int) error {
 	return err
 }
 
-func (us *UserService) Authenticate (email, password string) (*User, error){
+func (us *UserService) Authenticate(email, password string) (*User, error) {
 	email = strings.ToLower(email)
 	user := &User{
 		Email: email,
@@ -102,4 +102,17 @@ func (us *UserService) Authenticate (email, password string) (*User, error){
 		return nil, fmt.Errorf("authenticate: %w", err)
 	}
 	return user, nil
+}
+
+func (us *UserService) UpdatePassword(userID int, password string) error {
+	encpw, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("UpdatePassword: %w", err)
+	}
+	passwordHash := string(encpw)
+	_, err = us.DB.Exec(`UPDATE users set password = $2 WHERE id = $1`, userID, passwordHash)
+	if err != nil {
+		return fmt.Errorf("UpdatePassword: %w", err)
+	}
+	return nil
 }
