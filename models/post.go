@@ -3,6 +3,7 @@ package models
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 )
 
 type Post struct {
@@ -24,7 +25,7 @@ func NewPost(title, content string, userID int ) *Post {
 	}
 }
 
-func (ps *PostService) CreatePost(post *Post) (int, error) {
+func (ps *PostService) Create(post *Post) (int, error) {
 	query := `INSERT INTO Posts (title, content, user_id) VALUES ($1, $2, $3) RETURNING id`
 	var id int
 	err := ps.DB.QueryRow(query,
@@ -33,12 +34,12 @@ func (ps *PostService) CreatePost(post *Post) (int, error) {
 		post.UserID,
 	).Scan(&id)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("create post: %w", err)
 	}
 	return id, nil
 }
 
-func (ps *PostService) GetPosts() ([]Post, error) {
+func (ps *PostService) GetAll() ([]Post, error) {
 	rows, err := ps.DB.Query(`SELECT id, title, content, user_id FROM Posts`)
 	if err != nil {
 		return nil, err
@@ -56,7 +57,7 @@ func (ps *PostService) GetPosts() ([]Post, error) {
 	return posts, nil
 }
 
-func (ps *PostService) GetPostByID(id int) (*Post, error) {
+func (ps *PostService) GetByID(id int) (*Post, error) {
 	query := `SELECT id, title, content, user_id FROM Posts WHERE id = $1`
 	var post Post
 	err := ps.DB.QueryRow(query, id).Scan(&post.ID, &post.Title, &post.Content, &post.UserID)
@@ -69,13 +70,13 @@ func (ps *PostService) GetPostByID(id int) (*Post, error) {
 	return &post, nil
 }
 
-func (ps *PostService) UpdatePost(id int, post *Post) error {
+func (ps *PostService) Update(id int, post *Post) error {
 	_, err := ps.DB.Query(`UPDATE posts SET title=$2, content=$3 WHERE id=$1`,
 		id, post.Title, post.Content)
 	return err
 }
 
-func (ps *PostService) DeletePost(id int) error {
+func (ps *PostService) Delete(id int) error {
 	_, err := ps.DB.Query(`delete from posts where id = $1`, id)
 	return err
 }

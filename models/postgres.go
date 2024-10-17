@@ -3,11 +3,11 @@ package models
 import (
 	"database/sql"
 	"fmt"
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 func Open(config PostgresConfig) (*sql.DB, error) {
-	db, err := sql.Open("postgres", config.ConnectionString())
+	db, err := sql.Open("pgx", config.ConnectionString())
 	if err != nil {
 		return nil, fmt.Errorf("open: %w", err)
 	}

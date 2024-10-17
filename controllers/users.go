@@ -2,12 +2,12 @@ package controllers
 
 import (
 	"blog/context"
+	"blog/errors"
 	"blog/models"
 	"fmt"
 	"log"
 	"net/http"
 	"net/url"
-	"strings"
 )
 
 type Users struct {
@@ -33,22 +33,24 @@ func (u Users) New(w http.ResponseWriter, r *http.Request) {
 }
 
 func (u Users) Create(w http.ResponseWriter, r *http.Request) {
-	email := r.FormValue("email")
-	username := r.FormValue("username")
-	password := r.FormValue("password")
-	email = strings.ToLower(email)
-	user, err1 := models.NewUser(username, email, password)
-	if err1 != nil {
-		log.Println(err1)
-		return
+	var data struct {
+		Email string
+		Username string
+		Password string
 	}
-	id, err := u.UserService.CreateUser(user)
+	data.Email = r.FormValue("email")
+	data.Username = r.FormValue("username")
+	data.Password = r.FormValue("password")
+
+	user, err := u.UserService.Create(data.Email, data.Username, data.Password)
 	if err != nil {
+		if errors.Is(err, models.ErrEmailTaken) {
+			err = errors.Public(err, "That email address is already associated with an account")
+		}
+		u.Templates.New.Execute(w,r, data, err)
 		log.Println(err)
-		http.Error(w, "Something went wrong", http.StatusInternalServerError)
 		return
 	}
-	user.ID = id
 	session, err := u.SessionService.Create(user.ID)
 	if err != nil {
 		log.Println(err)

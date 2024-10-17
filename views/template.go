@@ -3,6 +3,7 @@ package views
 import (
 	"blog/context"
 	"blog/models"
+	"errors"
 	"fmt"
 	"github.com/gorilla/csrf"
 	"html/template"
@@ -10,6 +11,10 @@ import (
 	"log"
 	"net/http"
 )
+
+type public interface {
+	Public() string
+}
 
 func Must(t Template, err error) Template {
 	if err != nil {
@@ -28,6 +33,9 @@ func ParseFS(fs fs.FS, pattern ...string) (Template, error) {
 			"currentUser": func() (*models.User, error) {
 				return nil, fmt.Errorf("currentUser not implemented")
 			},
+			"errors": func() []string{
+				return nil
+			},
 		})
 
 	t, err := t.ParseFS(fs, pattern...)
@@ -44,18 +52,22 @@ type Template struct {
 	htmlTpl *template.Template
 }
 
-func (t Template) Execute(w http.ResponseWriter, r *http.Request ,data interface{}) {
+func (t Template) Execute(w http.ResponseWriter, r *http.Request ,data interface{}, errs ...error) {
 	tpl, err := t.htmlTpl.Clone()
 	if err != nil {
 		log.Println(err)
 		return
 	}
+	errMsgs := errMessages(errs...)
 	tpl = tpl.Funcs(template.FuncMap{
 		"csrfField": func() template.HTML {
 			return csrf.TemplateField(r)
 		},
 		"currentUser": func() *models.User {
 			return context.User(r.Context())
+		},
+		"errors": func() []string{
+			return errMsgs
 		},
 	})
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -65,4 +77,18 @@ func (t Template) Execute(w http.ResponseWriter, r *http.Request ,data interface
 		http.Error(w, "Error executing the template", http.StatusInternalServerError)
 		return
 	}
+}
+
+func errMessages(errs ...error) []string {
+	var msgs []string
+	for _, err := range errs {
+		var pubErr public
+		if errors.As(err, &pubErr) {
+			msgs = append(msgs, pubErr.Public())
+		} else {
+			log.Println(err)
+			msgs = append(msgs, "Something went wrong")
+		}
+	}
+	return msgs
 }

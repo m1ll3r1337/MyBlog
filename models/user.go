@@ -4,8 +4,14 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/crypto/bcrypt"
 	"strings"
+)
+
+var (
+	ErrEmailTaken = errors.New("models: email already taken")
 )
 
 type User struct {
@@ -19,7 +25,7 @@ type UserService struct {
 	DB *sql.DB
 }
 
-func NewUser(username, email, password string) (*User, error) {
+func New(username, email, password string) (*User, error) {
 	encpw, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, err
@@ -31,60 +37,32 @@ func NewUser(username, email, password string) (*User, error) {
 	}, nil
 }
 
-func (us *UserService) CreateUser(user *User) (int, error) {
-	query := `INSERT INTO Users (username, email, password) VALUES ($1, $2, $3) RETURNING id`
-	var id int
-	err := us.DB.QueryRow(query,
-		user.Username,
-		user.Email,
-		user.Password,
-	).Scan(&id)
+func (us *UserService) Create(email, username, password string) (*User, error) {
+	email = strings.ToLower(email)
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		return -1, err
+		return nil, fmt.Errorf("create user: %w", err)
 	}
-	return id, nil
-}
+	password = string(hash)
 
-func (us *UserService) GetUsers() ([]User, error) {
-	rows, err := us.DB.Query(`SELECT id, username, email FROM Users`)
+	user := User{
+		Username: username,
+		Email:    email,
+		Password: password,
+	}
+	row := us.DB.QueryRow(`insert into users (username, email, password) values ($1, $2, $3) returning id;`,
+		username, email, password)
+	err = row.Scan(&user.ID)
 	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var users []User
-	for rows.Next() {
-		var user User
-		if err = rows.Scan(&user.ID, &user.Username, &user.Email); err != nil {
-			return nil, err
+		var pgError *pgconn.PgError
+		if errors.As(err, &pgError) {
+			if pgError.Code == pgerrcode.UniqueViolation {
+				return nil, ErrEmailTaken
+			}
 		}
-		users = append(users, user)
-	}
-	return users, nil
-}
-
-func (us *UserService) GetUserByID(id int) (*User, error) {
-	query := `SELECT id, username, email FROM Users WHERE id = $1`
-	var user User
-	err := us.DB.QueryRow(query, id).Scan(&user.ID, &user.Username, &user.Email)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
-		}
-		return nil, err
+		return nil, fmt.Errorf("create user: %w", err)
 	}
 	return &user, nil
-}
-
-func (us *UserService) UpdateUser(id int, user *User) error {
-	_, err := us.DB.Query(`UPDATE users SET username=$2, email=$3 WHERE id=$1`,
-		id, user.Username, user.Email)
-	return err
-}
-
-func (us *UserService) DeleteUser(id int) error {
-	_, err := us.DB.Query(`delete from users where id = $1`, id)
-	return err
 }
 
 func (us *UserService) Authenticate(email, password string) (*User, error) {
