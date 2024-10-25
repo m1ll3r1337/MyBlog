@@ -1,8 +1,7 @@
 package errors
 
 func Public(err error, msg string) error {
-
-
+	return publicError{err, msg}
 }
 
 type publicError struct {

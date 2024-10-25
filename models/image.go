@@ -48,7 +48,20 @@ func (is *ImageService) GetImageByID(id int) (*Image, error) {
 	err := is.DB.QueryRow(query, id).Scan(&img.ID, &img.Data)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return &img, nil
+}
+
+func (is *ImageService) ByPostID(postID int) (*Image, error) {
+	query := `SELECT id, data FROM Images WHERE post_id = $1`
+	var img Image
+	err := is.DB.QueryRow(query, postID).Scan(&img.ID, &img.Data)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
 		}
 		return nil, err
 	}

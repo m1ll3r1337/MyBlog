@@ -10,10 +10,6 @@ import (
 	"strings"
 )
 
-var (
-	ErrEmailTaken = errors.New("models: email already taken")
-)
-
 type User struct {
 	ID       int    `json:"id"`
 	Username string `json:"username"`

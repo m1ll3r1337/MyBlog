@@ -25,18 +25,22 @@ func NewPost(title, content string, userID int ) *Post {
 	}
 }
 
-func (ps *PostService) Create(post *Post) (int, error) {
+func (ps *PostService) Create(title, content string, userID int) (*Post, error) {
 	query := `INSERT INTO Posts (title, content, user_id) VALUES ($1, $2, $3) RETURNING id`
-	var id int
-	err := ps.DB.QueryRow(query,
-		post.Title,
-		post.Content,
-		post.UserID,
-	).Scan(&id)
-	if err != nil {
-		return 0, fmt.Errorf("create post: %w", err)
+	post := Post{
+		Title: title,
+		Content: content,
+		UserID: userID,
 	}
-	return id, nil
+	err := ps.DB.QueryRow(query,
+		title,
+		content,
+		userID,
+	).Scan(&post.ID)
+	if err != nil {
+		return nil, fmt.Errorf("create post: %w", err)
+	}
+	return &post, nil
 }
 
 func (ps *PostService) GetAll() ([]Post, error) {
@@ -63,21 +67,27 @@ func (ps *PostService) GetByID(id int) (*Post, error) {
 	err := ps.DB.QueryRow(query, id).Scan(&post.ID, &post.Title, &post.Content, &post.UserID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
+			return nil, ErrNotFound
 		}
 		return nil, err
 	}
 	return &post, nil
 }
 
-func (ps *PostService) Update(id int, post *Post) error {
+func (ps *PostService) Update(post *Post) error {
 	_, err := ps.DB.Query(`UPDATE posts SET title=$2, content=$3 WHERE id=$1`,
-		id, post.Title, post.Content)
-	return err
+		post.ID, post.Title, post.Content)
+	if err != nil {
+		return fmt.Errorf("update post: %w", err)
+	}
+	return nil
 }
 
 func (ps *PostService) Delete(id int) error {
-	_, err := ps.DB.Query(`delete from posts where id = $1`, id)
-	return err
+	_, err := ps.DB.Exec(`delete from posts where id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("delete post: %w", err)
+	}
+	return nil
 }
 

@@ -1,0 +1,27 @@
+{{template "header" .}}
+
+<div class="p-8 w-full">
+    <h1 class="pt-4 pb-8 text-3xl font-bold text-gray-800">
+        Create a new post
+    </h1>
+    <form action="/posts" method="post">
+        <div class="hidden">
+            {{csrfField}}
+        </div>
+        <div class="py-2">
+            <label for="title" class="text-small font-semibold text-gray-800">Title</label>
+            <input name="title" id="title" type="text" placeholder="Post Title"
+                   class="w-full px-3 py-2 border border-color-grey-300
+                    placeholder-gray-600 text-gray-800 rounded"
+                   value="{{.Title}}"
+                   autofocus/>
+        </div>
+        <div class="py-4">
+            <button class="py-2 px-8 bg-indigo-600 hover:bg-indigo-700 text-white rounded font-bold text-lg"
+                    type="submit">
+                Create
+            </button>
+        </div>
+    </form>
+</div>
+{{template "footer" .}}

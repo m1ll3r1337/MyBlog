@@ -40,7 +40,7 @@ func (ss *SessionService) Create(userID int) (*Session, error) {
 		TokenHash: ss.hash(token),
 	}
 	row := ss.DB.QueryRow(`INSERT INTO sessions (user_id, token_hash) VALUES ($1, $2) 
-		ON conflict (user_id) DO UPDATE SET token_hash = $2 RETURNING id`, userID, session.Token)
+		ON conflict (user_id) DO UPDATE SET token_hash = $2 RETURNING id`, userID, session.TokenHash)
 	err = row.Scan(&session.ID)
 	if err != nil {
 		return nil, fmt.Errorf("create: %w", err)
@@ -52,10 +52,10 @@ func (ss *SessionService) Create(userID int) (*Session, error) {
 func (ss *SessionService) User(token string) (*User, error) {
 	tokenHash := ss.hash(token)
 	var user User
-	row := ss.DB.QueryRow(`SELECT Users.id, Users.email, Users.password
+	row := ss.DB.QueryRow(`SELECT Users.id, Users.email, Users.username, Users.password
 				FROM  Sessions JOIN Users ON Users.id = sessions.user_id 
 				WHERE sessions.token_hash = $1`, tokenHash)
-	err := row.Scan(&user.ID, &user.Email, &user.Password)
+	err := row.Scan(&user.ID, &user.Email, &user.Username, &user.Password)
 	if err != nil {
 		return nil, fmt.Errorf("user: %w", err)
 	}

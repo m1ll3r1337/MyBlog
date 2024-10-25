@@ -90,6 +90,7 @@ func (u Users) ProcessSignIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	setCookie(w, CookieSession, session.Token)
+	http.Redirect(w, r, "/users/me", http.StatusFound)
 }
 
 func (u Users) CurrentUser(w http.ResponseWriter, r *http.Request) {
@@ -200,6 +201,7 @@ func (umw UserMiddleware) SetUser(next http.Handler) http.Handler {
 		}
 		user, err := umw.SessionService.User(token)
 		if err != nil {
+			log.Println(err)
 			next.ServeHTTP(w, r)
 			return
 		}

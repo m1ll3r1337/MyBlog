@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/csrf"
-	"github.com/gorilla/securecookie"
 	"github.com/joho/godotenv"
 	"net/http"
 	"os"
@@ -45,7 +44,7 @@ func loadEnvConfig() (config, error) {
 	cfg.SMTP.Username = os.Getenv("SMTP_USERNAME")
 	cfg.SMTP.Password = os.Getenv("SMTP_PASSWORD")
 
-	cfg.CSRF.Key = string(securecookie.GenerateRandomKey(32))
+	cfg.CSRF.Key = "772cd1e7715c22a50b45195150498c2f"
 	cfg.CSRF.Secure = false
 
 	cfg.Server.Address = ":3000"
@@ -75,19 +74,25 @@ func main() {
 		DB: db,
 	}
 	emailService := models.NewEmailService(cfg.SMTP)
+	postService := &models.PostService{
+		DB: db,
+	}
 	//Setup middleware
 
 	umw := controllers.UserMiddleware{
 		SessionService: sessionService,
 	}
 
-	csrfMw := csrf.Protect([]byte(cfg.CSRF.Key), csrf.Secure(cfg.CSRF.Secure))
+	csrfMw := csrf.Protect([]byte(cfg.CSRF.Key), csrf.Secure(cfg.CSRF.Secure), csrf.Path("/"))
 	//Setup controllers
 	usersC := controllers.Users{
 		UserService: userService,
 		SessionService: sessionService,
 		PasswordResetService: pwResetService,
 		EmailService: emailService,
+	}
+	postsC := controllers.Posts{
+		PostService: postService,
 	}
 
 	usersC.Templates.New = views.Must(views.ParseFS(
@@ -110,10 +115,24 @@ func main() {
 		templates.FS,
 		"reset-pw.gohtml", "tailwind.gohtml",
 	))
+	postsC.Templates.New = views.Must(views.ParseFS(
+		templates.FS,
+		"posts/new.gohtml", "tailwind.gohtml",))
+	postsC.Templates.Edit = views.Must(views.ParseFS(
+		templates.FS,
+		"posts/edit.gohtml", "tailwind.gohtml",))
+	postsC.Templates.Index = views.Must(views.ParseFS(
+		templates.FS,
+		"posts/index.gohtml", "tailwind.gohtml",))
+	postsC.Templates.Show = views.Must(views.ParseFS(
+		templates.FS,
+		"posts/show.gohtml", "tailwind.gohtml",))
+
 
 	//Setup router
 	r := chi.NewRouter()
-	r.Use(csrfMw, umw.SetUser)
+	r.Use(csrfMw)
+	r.Use(umw.SetUser)
 	r.Get("/signup", usersC.New)
 	r.Post("/signup", usersC.Create)
 	r.Get("/signin", usersC.SignIn)
@@ -127,7 +146,18 @@ func main() {
 		r.Use(umw.RequireUser)
 		r.Get("/", usersC.CurrentUser)
 	})
-
+	r.Route("/posts", func(r chi.Router) {
+		r.Get("/{id}", postsC.Show)
+		r.Get("/", postsC.Index)
+		r.Group(func(r chi.Router) {
+			r.Use(umw.RequireUser)
+			r.Get("/new", postsC.New)
+			r.Get("/{id}/edit", postsC.Edit)
+			r.Post("/{id}", postsC.Update)
+			r.Post("/{id}/delete", postsC.Delete)
+			r.Post("/", postsC.Create)
+		})
+	})
 
 
 	//Start the server
