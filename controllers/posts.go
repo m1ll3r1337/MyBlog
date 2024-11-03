@@ -8,6 +8,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"log"
 	"net/http"
+	"net/url"
+	"path/filepath"
 	"strconv"
 )
 
@@ -18,8 +20,7 @@ type Posts struct {
 		Index Template
 		Show  Template
 	}
-	PostService  *models.PostService
-	ImageService *models.ImageService
+	PostService *models.PostService
 }
 
 func (p Posts) New(w http.ResponseWriter, r *http.Request) {
@@ -56,15 +57,32 @@ func (p Posts) Edit(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-
-	data := struct {
+	type Image struct {
+		PostID          int
+		Filename        string
+		FilenameEscaped string
+	}
+	var data struct {
 		ID      int
 		Title   string
 		Content string
-	}{
-		ID:      post.ID,
-		Title:   post.Title,
-		Content: post.Content,
+		Images	[]Image
+	}
+	data.ID = post.ID
+	data.Title = post.Title
+	data.Content = post.Content
+	images, err := p.PostService.Images(post.ID)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	for _, image := range images {
+		data.Images = append(data.Images, Image{
+			PostID:          post.ID,
+			Filename:        image.Filename,
+			FilenameEscaped: url.PathEscape(image.Filename),
+		})
 	}
 	p.Templates.Edit.Execute(w, r, data)
 }
@@ -116,21 +134,32 @@ func (p Posts) Show(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	image, err := p.ImageService.ByPostID(post.ID)
-	if err != nil {
-		http.Error(w, "Something went wrong", http.StatusInternalServerError)
-		return
+	type Image struct {
+		PostID          int
+		Filename        string
+		FilenameEscaped string
 	}
-	data := struct {
+	var data struct {
 		ID      int
 		Title   string
 		Content string
-		Image   *models.Image
-	}{
-		ID:      post.ID,
-		Title:   post.Title,
-		Content: post.Content,
-		Image: image,
+		Images  []Image
+	}
+	data.ID = post.ID
+	data.Title = post.Title
+	data.Content = post.Content
+	images, err := p.PostService.Images(post.ID)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	for _, image := range images {
+		data.Images = append(data.Images, Image{
+			PostID:          post.ID,
+			Filename:        image.Filename,
+			FilenameEscaped: url.PathEscape(image.Filename),
+		})
 	}
 	p.Templates.Show.Execute(w, r, data)
 }
@@ -149,7 +178,92 @@ func (p Posts) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-type postOption func(http.ResponseWriter,*http.Request, *models.Post) error
+func (p Posts) Image(w http.ResponseWriter, r *http.Request) {
+	filename := p.filename(w,r)
+	postID, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		log.Println(err)
+		http.Error(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	image, err := p.PostService.Image(postID, filename)
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			http.Error(w, "image not found", http.StatusNotFound)
+		}
+		log.Println(err)
+		http.Error(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+
+	http.ServeFile(w, r, image.Path)
+}
+
+func (p Posts) UploadImage(w http.ResponseWriter, r *http.Request) {
+	post, err := p.postByID(w, r, userMustOwnPost)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	err = r.ParseMultipartForm(5 << 20) // 5 mb
+	if err != nil {
+		log.Println(err)
+		http.Error(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	fileHeaders := r.MultipartForm.File["images"]
+	for _, fileHeader := range fileHeaders {
+		file, err := fileHeader.Open()
+		if err != nil {
+			log.Println(err)
+			http.Error(w, "Something went wrong", http.StatusInternalServerError)
+			return
+		}
+		defer file.Close()
+
+		err = p.PostService.CreateImage(post.ID, fileHeader.Filename, file)
+		if err != nil {
+			var fileErr models.FileError
+			if errors.As(err, &fileErr) {
+				msg := fmt.Sprintf("%v has invalid content type or extension. Only png, gif, and jpg files can" +
+					"be uploaded.", fileHeader.Filename)
+				http.Error(w, msg, http.StatusBadRequest)
+			}
+			log.Println(err)
+			http.Error(w, "Something went wrong", http.StatusInternalServerError)
+			return
+		}
+	}
+	editPath := fmt.Sprintf("/posts/%d/edit", post.ID)
+	http.Redirect(w, r, editPath, http.StatusFound)
+}
+
+func (p Posts) DeleteImage(w http.ResponseWriter, r *http.Request) {
+	filename := p.filename(w,r)
+	post, err := p.postByID(w, r, userMustOwnPost)
+	if err != nil {
+		return
+	}
+	err = p.PostService.DeleteImage(post.ID, filename)
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			http.Error(w, "image not found", http.StatusNotFound)
+		}
+		log.Println(err)
+		http.Error(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, fmt.Sprintf("/posts/%d/edit", post.ID), http.StatusFound)
+}
+
+func (p Posts) filename(w http.ResponseWriter, r *http.Request) string {
+	filename := chi.URLParam(r, "filename")
+	filename = filepath.Base(filename)
+	return filename
+}
+
+type postOption func(http.ResponseWriter, *http.Request, *models.Post) error
 
 func (p Posts) postByID(w http.ResponseWriter, r *http.Request, opts ...postOption) (*models.Post, error) {
 	id, err := strconv.Atoi(chi.URLParam(r, "id"))

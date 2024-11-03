@@ -1,14 +1,14 @@
 {{template "header" .}}
 <div class="p-8 w-full">
-{{/*    TODO: IMAGE*/}}
     <h1 class=" pt-4 pb-8 text-3xl font-bold text-gray-800 text-center">
         {{.Title}}
     </h1>
-{{/*    <div>*/}}
-{{/*        {{.Image}}*/}}
-{{/*    </div>*/}}
     <div class="p-4 text-2xl font-calibri text-gray-800 text-justify">
-        <img class="float-left p-4" alt="kitty" src="https://t4.ftcdn.net/jpg/01/28/41/29/360_F_128412991_dsVGU6BJuHPZd71aQoShVuz8XBKwxbvQ.jpg">
+        {{range .Images}}
+            <a href="/posts/{{.PostID}}/images/{{.Filename}}">
+                <img class="float-left p-4" src="/posts/{{.PostID}}/images/{{.FilenameEscaped}}"/>
+            </a>
+        {{end}}
         {{.Content}}
     </div>
 </div>
