@@ -18,7 +18,7 @@ type config struct {
 	PSQL models.PostgresConfig
 	SMTP models.SMTPConfig
 	CSRF struct {
-		Key string
+		Key    string
 		Secure bool
 	}
 	Server struct {
@@ -33,7 +33,17 @@ func loadEnvConfig() (config, error) {
 		return cfg, err
 	}
 
-	cfg.PSQL = models.DefaultPostgresConfig()
+	cfg.PSQL = models.PostgresConfig{
+		Host:     os.Getenv("PSQL_HOST"),
+		Port:     os.Getenv("PSQL_PORT"),
+		User:     os.Getenv("PSQL_USER"),
+		Password: os.Getenv("PSQL_PASSWORD"),
+		Database: os.Getenv("PSQL_DATABASE"),
+		SSLMode:  os.Getenv("PSQL_SSLMODE"),
+	}
+	if cfg.PSQL.Host == "" && cfg.PSQL.Port == "" {
+		return cfg, fmt.Errorf("no PSQL config provided")
+	}
 
 	cfg.SMTP.Host = os.Getenv("SMTP_HOST")
 	portStr := os.Getenv("SMTP_PORT")
@@ -44,10 +54,10 @@ func loadEnvConfig() (config, error) {
 	cfg.SMTP.Username = os.Getenv("SMTP_USERNAME")
 	cfg.SMTP.Password = os.Getenv("SMTP_PASSWORD")
 
-	cfg.CSRF.Key = "772cd1e7715c22a50b45195150498c2f"
-	cfg.CSRF.Secure = false
+	cfg.CSRF.Key = os.Getenv("CSRF_KEY")
+	cfg.CSRF.Secure = os.Getenv("CSRF_SECURE") == "true"
 
-	cfg.Server.Address = ":3000"
+	cfg.Server.Address = os.Getenv("SERVER_ADDRESS")
 	return cfg, nil
 }
 
@@ -86,10 +96,10 @@ func main() {
 	csrfMw := csrf.Protect([]byte(cfg.CSRF.Key), csrf.Secure(cfg.CSRF.Secure), csrf.Path("/"))
 	//Setup controllers
 	usersC := controllers.Users{
-		UserService: userService,
-		SessionService: sessionService,
+		UserService:          userService,
+		SessionService:       sessionService,
 		PasswordResetService: pwResetService,
-		EmailService: emailService,
+		EmailService:         emailService,
 	}
 	postsC := controllers.Posts{
 		PostService: postService,
@@ -117,17 +127,16 @@ func main() {
 	))
 	postsC.Templates.New = views.Must(views.ParseFS(
 		templates.FS,
-		"posts/new.gohtml", "tailwind.gohtml",))
+		"posts/new.gohtml", "tailwind.gohtml"))
 	postsC.Templates.Edit = views.Must(views.ParseFS(
 		templates.FS,
-		"posts/edit.gohtml", "tailwind.gohtml",))
+		"posts/edit.gohtml", "tailwind.gohtml"))
 	postsC.Templates.Index = views.Must(views.ParseFS(
 		templates.FS,
-		"posts/index.gohtml", "tailwind.gohtml",))
+		"posts/index.gohtml", "tailwind.gohtml"))
 	postsC.Templates.Show = views.Must(views.ParseFS(
 		templates.FS,
-		"posts/show.gohtml", "tailwind.gohtml",))
-
+		"posts/show.gohtml", "tailwind.gohtml"))
 
 	//Setup router
 	r := chi.NewRouter()
@@ -136,7 +145,7 @@ func main() {
 	r.Get("/signup", usersC.New)
 	r.Post("/signup", usersC.Create)
 	r.Get("/signin", usersC.SignIn)
-	r.Post("/signin",usersC.ProcessSignIn)
+	r.Post("/signin", usersC.ProcessSignIn)
 	r.Post("/signout", usersC.ProcessSignOut)
 	r.Get("/forgot-pw", usersC.ForgotPassword)
 	r.Post("/forgot-pw", usersC.ProcessForgotPassword)
@@ -161,7 +170,6 @@ func main() {
 			r.Post("/{id}/images", postsC.UploadImage)
 		})
 	})
-
 
 	//Start the server
 	fmt.Printf("Listening on %s...", cfg.Server.Address)

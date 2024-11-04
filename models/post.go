@@ -207,9 +207,9 @@ func hasExtension(file string, extensions []string) bool {
 }
 
 func (ps *PostService) extensions() []string {
-	return []string{".png", ".jpg",".gif"}
+	return []string{".png", ".jpg",".gif", ".jpeg"}
 }
 
 func (ps *PostService) imageContentTypes() []string {
-	return []string{"image/png", "image/jpg", "image/gif"}
+	return []string{"image/png", "image/jpg", "image/gif", "image/jpeg"}
 }
