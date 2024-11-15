@@ -66,7 +66,7 @@ func (p Posts) Edit(w http.ResponseWriter, r *http.Request) {
 		ID      int
 		Title   string
 		Content string
-		Images	[]Image
+		Images  []Image
 	}
 	data.ID = post.ID
 	data.Title = post.Title
@@ -106,11 +106,14 @@ func (p Posts) Update(w http.ResponseWriter, r *http.Request) {
 
 func (p Posts) Index(w http.ResponseWriter, r *http.Request) {
 	type Post struct {
-		ID    int
-		Title string
+		ID              int
+		Title           string
+		Filename        string
+		FilenameEscaped string // TODO: unclear its an image
 	}
+
 	var data struct {
-		Posts []Post
+		Posts      []Post
 	}
 
 	posts, err := p.PostService.GetAll()
@@ -120,9 +123,24 @@ func (p Posts) Index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, post := range posts {
+		images, err := p.PostService.Images(post.ID) //TODO: multiple image retrieve
+		if err != nil {
+			log.Println(err)
+			http.Error(w, "Something went wrong", http.StatusInternalServerError)
+			return
+		}
+		if len(images) == 0 {
+			images = append(images, models.Image{
+				PostID:          post.ID,
+				Path: "",
+				Filename: "",
+			})
+		}
 		data.Posts = append(data.Posts, Post{
 			ID:    post.ID,
 			Title: post.Title,
+			Filename: images[0].Filename,
+			FilenameEscaped: url.PathEscape(images[0].Filename),
 		})
 	}
 	p.Templates.Index.Execute(w, r, data)
@@ -179,7 +197,7 @@ func (p Posts) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p Posts) Image(w http.ResponseWriter, r *http.Request) {
-	filename := p.filename(w,r)
+	filename := p.filename(w, r)
 	postID, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
 		log.Println(err)
@@ -226,7 +244,7 @@ func (p Posts) UploadImage(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			var fileErr models.FileError
 			if errors.As(err, &fileErr) {
-				msg := fmt.Sprintf("%v has invalid content type or extension. Only png, gif, and jpg files can" +
+				msg := fmt.Sprintf("%v has invalid content type or extension. Only png, gif, and jpg files can"+
 					"be uploaded.", fileHeader.Filename)
 				http.Error(w, msg, http.StatusBadRequest)
 			}
@@ -240,7 +258,7 @@ func (p Posts) UploadImage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p Posts) DeleteImage(w http.ResponseWriter, r *http.Request) {
-	filename := p.filename(w,r)
+	filename := p.filename(w, r)
 	post, err := p.postByID(w, r, userMustOwnPost)
 	if err != nil {
 		return

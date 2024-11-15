@@ -1,44 +1,43 @@
 {{template "header" .}}
 <div class="p-8 w-full">
-    <h1 class="pt-4 pb-8 text-3xl font-bold text-gray-800">
+    <h1 class="flex flex-grow inline pt-4 pb-8 text-3xl font-bold text-gray-800">
         Posts
-    </h1>
-    <table class="w-full table-fixed">
-        <thead>
-        <tr>
-            <th class="p-2 text-left w-24">ID</th>
-            <th class="p-2 text-left">Title</th>
-            <th class="p-2 text-left w-96">Actions</th>
-        </tr>
-        </thead>
-        <tbody>
-        {{range .Posts}}
-            <tr class="border">
-                <td class="p-2 border">{{.ID}}</td>
-                <td class="p-2 border">{{.Title}}</td>
-                <td class="p-2 border flex space-x-2">
-                    <a href="/posts/{{.ID}}" class="py-1 px-2 bg-blue-100 hover:bg-blue-200 border border-blue-600 rounded
-                        text-xs text-blue">
-                        View</a>
-
-                    <a href="/posts/{{.ID}}/edit" class="py-1 px-2 bg-yellow-100 hover:bg-yellow-200 border
-                    border-yellow-600 rounded text-xs text-yellow">
-                        Edit</a>
-                    <form action="/posts/{{.ID}}/delete" method="post" onsubmit="return confirm('Do you really want to ' +
-                 'delete this post');">
-                        {{csrfField}}
-                        <button type="submit" class="py-1 px-2 bg-red-100 hover:bg-red-200 border
-                    border-red-600 rounded text-xs text-red">Delete</button>
-                    </form>
-                </td>
-            </tr>
-        {{end}}
-        </tbody>
-    </table>
-    <div class="py-4">
-        <a href="/posts/new" class="py-2 px-8 bg-indigo-600 hover:bg-indigo-700 text-white text-lg rounded font-bold">
-            New Post
+        <a class="py-4">
+            <a href="/posts/new" class="ml-auto py-2 px-8 bg-indigo-600 hover:bg-indigo-700 text-white text-lg rounded font-bold">
+                New Post
+            </a>
         </a>
+    </h1>
+    <div class="grid grid-cols-4 gap-4">
+        {{range .Posts}}
+            <div class="bg-white rounded-lg shadow-md overflow-hidden flex flex-col h-full">
+                <div class="p-4 flex flex-col items-start flex-1">
+                    <h2 class="text-xl font-semibold mb-2">{{.Title}}</h2>
+                    <a href="/posts/{{.ID}}" class="w-full flex-grow flex items-center justify-center">
+                    {{if .FilenameEscaped}}
+                        <img class="w-full h-auto min-h-60 max-h-60 object-cover" src="/posts/{{.ID}}/images/{{.FilenameEscaped}}"/>
+                    {{else}}
+                        <img class="w-full h-auto min-h-60 max-h-60 object-cover" src="https://t4.ftcdn.net/jpg/07/91/22/59/360_F_791225927_caRPPH99D6D1iFonkCRmCGzkJPf36QDw.jpg"/>
+{{/*                        <img class="w-full h-auto min-h-60 max-h-60 object-cover" src="/images/noimage/noimage.png"/>*/}}
+                    {{end}}
+                    </a>
+
+                </div>
+{{/*                TODO: Desc and tags*/}}
+                <div class="p-4 flex-1 flex items-start">
+                    <p class="text-gray-700 text-sm">Description</p>
+                </div>
+                <div class="text-xs p-2 bg-gray-100 flex-1 flex items-end">
+                    <div class="flex space-x-2">
+                        <span class="bg-gray-200 text-gray-600 px-2 py-1 rounded">tag</span>
+                        <span class="bg-gray-200 text-gray-600 px-2 py-1 rounded">tag</span>
+                        <span class="bg-gray-200 text-gray-600 px-2 py-1 rounded">tag</span>
+                        <span class="bg-gray-200 text-gray-600 px-2 py-1 rounded">tag</span>
+                    </div>
+                </div>
+            </div>
+        {{end}}
     </div>
+
 </div>
 {{template "footer" .}}

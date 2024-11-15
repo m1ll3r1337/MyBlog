@@ -1,8 +1,17 @@
 {{template "header" .}}
 <div class="p-8 w-full">
-    <h1 class=" pt-4 pb-8 text-3xl font-bold text-gray-800 text-center">
-        {{.Title}}
-    </h1>
+    <div class="flex items-center justify-between">
+        <span class="flex-1"></span>
+        <a class="pt-4 pb-8 text-3xl font-bold text-gray-800 text-center flex-1 text-center">
+            {{.Title}}
+        </a>
+        <a href="/posts/{{.ID}}/edit" class="py-4 text-right flex-1 flex justify-end">
+            <button class="ml-auto py-2 px-8 bg-indigo-600 hover:bg-indigo-700 text-white text-lg rounded font-bold">
+                Edit
+            </button>
+        </a>
+    </div>
+
     <div class="p-4 text-2xl font-calibri text-gray-800 text-justify">
         {{range .Images}}
             <a href="/posts/{{.PostID}}/images/{{.Filename}}">
