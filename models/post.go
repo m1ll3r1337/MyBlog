@@ -19,17 +19,20 @@ type Post struct {
 }
 
 type Image struct {
-	PostID int
-	Path      string
-	Filename  string
+	PostID   int
+	Path     string
+	Filename string
 }
+
+
 
 type PostService struct {
 	DB *sql.DB
 	//ImagesDir is used to tell PostService where to store and locate images. If not set, it will default to "images"
-	ImagesDir string
+	ImagesDir   string
+	Sr          MarkdownReader
+	MarkdownDir string
 }
-
 
 func NewPost(title, content string, userID int) *Post {
 	return &Post{
@@ -98,17 +101,17 @@ func (ps *PostService) Update(post *Post) error {
 }
 
 func (ps *PostService) Images(postID int) ([]Image, error) {
-	globPattern := filepath.Join(ps.postDir(postID), "*")
+	globPattern := filepath.Join(ps.postImagesDir(postID), "*")
 	allFiles, err := filepath.Glob(globPattern)
 	if err != nil {
 		return nil, fmt.Errorf("retrieving images: %w", err)
 	}
 	var images []Image
 	for _, file := range allFiles {
-		if hasExtension(file, ps.extensions()) {
+		if hasExtension(file, ps.imageExtensions()) {
 			images = append(images, Image{
-				PostID: postID,
-				Path: file,
+				PostID:   postID,
+				Path:     file,
 				Filename: filepath.Base(file),
 			})
 		}
@@ -117,7 +120,7 @@ func (ps *PostService) Images(postID int) ([]Image, error) {
 }
 
 func (ps *PostService) Image(postID int, filename string) (Image, error) {
-	imagePath := filepath.Join(ps.postDir(postID), filename)
+	imagePath := filepath.Join(ps.postImagesDir(postID), filename)
 	_, err := os.Stat(imagePath)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
@@ -127,17 +130,33 @@ func (ps *PostService) Image(postID int, filename string) (Image, error) {
 	}
 	return Image{
 		Filename: filename,
-		PostID: postID,
-		Path: imagePath,
+		PostID:   postID,
+		Path:     imagePath,
 	}, nil
 }
+
+//func (ps *PostService) Markdown(postID int) (Markdown, error) {
+//	markdownPath := filepath.Join(ps.postMarkdownDir(postID))
+//	_, err := os.Stat(markdownPath)
+//	if err != nil {
+//		if errors.Is(err, fs.ErrNotExist) {
+//			return Markdown{}, ErrNotFound
+//		}
+//		return Image{}, fmt.Errorf("image not found: %w", err)
+//	}
+//	return Image{
+//		Filename: filename,
+//		PostID:   postID,
+//		Path:     imagePath,
+//	}, nil
+//}
 
 func (ps *PostService) Delete(id int) error {
 	_, err := ps.DB.Exec(`delete from posts where id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("delete post: %w", err)
 	}
-	dir := ps.postDir(id)
+	dir := ps.postImagesDir(id)
 	err = os.RemoveAll(dir)
 	if err != nil {
 		return fmt.Errorf("delete post: %w", err)
@@ -151,12 +170,12 @@ func (ps *PostService) CreateImage(postID int, filename string, contents io.Read
 	if err != nil {
 		return fmt.Errorf("creating image %v: %w", filename, err)
 	}
-	err = checkExtension(filename, ps.extensions())
+	err = checkExtension(filename, ps.imageExtensions())
 	if err != nil {
 		return fmt.Errorf("creating image %v: %w", filename, err)
 	}
 
-	postDir := ps.postDir(postID)
+	postDir := ps.postImagesDir(postID)
 	imagePath := filepath.Join(postDir, filename)
 	err = os.MkdirAll(postDir, 0755)
 	if err != nil {
@@ -187,13 +206,36 @@ func (ps *PostService) DeleteImage(postID int, filename string) error {
 	return nil
 }
 
-func (ps *PostService) postDir(id int) string {
+func (ps *PostService) Markdown(postID int) (string, error) {
+	markdownDir := ps.postMarkdownDir(postID)
+	filename := fmt.Sprintf("%d.md", postID)
+	markdownPath := filepath.Join(markdownDir, filename)
+	_, err := os.Stat(markdownPath)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return "", ErrNotFound
+		}
+		return "", fmt.Errorf("markdown file not found: %w", err)
+	}
+	return markdownPath, nil
+}
+
+func (ps *PostService) postImagesDir(id int) string {
 	imagesDir := ps.ImagesDir
 	if imagesDir == "" {
 		imagesDir = "images"
 	}
 	return filepath.Join(imagesDir, fmt.Sprintf("post-%d", id))
 }
+
+func (ps *PostService) postMarkdownDir(id int) string {
+	markdownDir := ps.MarkdownDir
+	if markdownDir == "" {
+		markdownDir = "markdowns"
+	}
+	return markdownDir
+}
+
 
 func hasExtension(file string, extensions []string) bool {
 	for _, ext := range extensions {
@@ -206,8 +248,8 @@ func hasExtension(file string, extensions []string) bool {
 	return false
 }
 
-func (ps *PostService) extensions() []string {
-	return []string{".png", ".jpg",".gif", ".jpeg"}
+func (ps *PostService) imageExtensions() []string {
+	return []string{".png", ".jpg", ".gif", ".jpeg"}
 }
 
 func (ps *PostService) imageContentTypes() []string {

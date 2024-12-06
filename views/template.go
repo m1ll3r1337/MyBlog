@@ -41,7 +41,7 @@ func ParseFS(fs fs.FS, pattern ...string) (Template, error) {
 
 	t, err := t.ParseFS(fs, pattern...)
 	if err != nil {
-		return Template{}, fmt.Errorf("Error parsing template: %w", err)
+		return Template{}, fmt.Errorf("error parsing template: %w", err)
 	}
 
 	return Template{

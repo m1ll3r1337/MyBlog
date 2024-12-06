@@ -86,6 +86,7 @@ func main() {
 	emailService := models.NewEmailService(cfg.SMTP)
 	postService := &models.PostService{
 		DB: db,
+		Sr: models.FileReader{},
 	}
 	//Setup middleware
 

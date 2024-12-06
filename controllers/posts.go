@@ -3,9 +3,13 @@ package controllers
 import (
 	"blog/context"
 	"blog/models"
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/go-chi/chi/v5"
+	"github.com/yuin/goldmark"
+	"html/template"
 	"log"
 	"net/http"
 	"net/url"
@@ -160,12 +164,18 @@ func (p Posts) Show(w http.ResponseWriter, r *http.Request) {
 	var data struct {
 		ID      int
 		Title   string
-		Content string
+		Content template.HTML
 		Images  []Image
 	}
 	data.ID = post.ID
 	data.Title = post.Title
-	data.Content = post.Content
+	//data.Content = post.Content
+	data.Content, err = p.getPostMarkdown(data.ID)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, "Markdown not found", http.StatusNotFound)
+		return
+	}
 	images, err := p.PostService.Images(post.ID)
 	if err != nil {
 		log.Println(err)
@@ -180,6 +190,24 @@ func (p Posts) Show(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	p.Templates.Show.Execute(w, r, data)
+}
+
+func (p Posts) getPostMarkdown(id int) (template.HTML, error) {
+	markdownPath, err := p.PostService.Markdown(id)
+	if err != nil {
+		return "", err
+	}
+	postMarkdown, err := p.PostService.Sr.Read(markdownPath)
+	if err != nil {
+		return "", err
+	}
+	mdRenderer := goldmark.New() // TODO: can move it to main inorder not to create it multiple times
+	var buf bytes.Buffer
+	if err := mdRenderer.Convert([]byte(postMarkdown), &buf); err != nil {
+		return "", err
+	}
+	str := buf.String()
+	return template.HTML(str), nil
 }
 
 func (p Posts) Delete(w http.ResponseWriter, r *http.Request) {
@@ -204,7 +232,7 @@ func (p Posts) Image(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Something went wrong", http.StatusInternalServerError)
 		return
 	}
-	image, err := p.PostService.Image(postID, filename)
+	img, err := p.PostService.Image(postID, filename)
 	if err != nil {
 		if errors.Is(err, models.ErrNotFound) {
 			http.Error(w, "image not found", http.StatusNotFound)
@@ -213,8 +241,7 @@ func (p Posts) Image(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Something went wrong", http.StatusInternalServerError)
 		return
 	}
-
-	http.ServeFile(w, r, image.Path)
+	http.ServeFile(w, r, img.Path)
 }
 
 func (p Posts) UploadImage(w http.ResponseWriter, r *http.Request) {
@@ -253,8 +280,13 @@ func (p Posts) UploadImage(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	editPath := fmt.Sprintf("/posts/%d/edit", post.ID)
-	http.Redirect(w, r, editPath, http.StatusFound)
+
+	filename := fmt.Sprintf("%s",fileHeaders[0].Filename) //TODO: multi parse
+	response := map[string]string{
+		"filename": filename, //TODO: test uploading the same image twice name colliding
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
 
 func (p Posts) DeleteImage(w http.ResponseWriter, r *http.Request) {
