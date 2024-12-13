@@ -3,12 +3,10 @@ package controllers
 import (
 	"blog/context"
 	"blog/models"
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/go-chi/chi/v5"
-	"github.com/yuin/goldmark"
 	"html/template"
 	"log"
 	"net/http"
@@ -47,7 +45,7 @@ func (p Posts) Create(w http.ResponseWriter, r *http.Request) {
 	data.Title = r.FormValue("title")
 	data.Content = r.FormValue("content")
 
-	post, err := p.PostService.Create(data.Title, data.Content, data.UserID)
+	post, err := p.PostService.Create(data.Title, data.Content, data.UserID) //TODO: change create to process md
 	if err != nil {
 		p.Templates.New.Execute(w, r, data, err)
 		return
@@ -70,24 +68,11 @@ func (p Posts) Edit(w http.ResponseWriter, r *http.Request) {
 		ID      int
 		Title   string
 		Content string
-		Images  []Image
 	}
 	data.ID = post.ID
 	data.Title = post.Title
 	data.Content = post.Content
-	images, err := p.PostService.Images(post.ID)
-	if err != nil {
-		log.Println(err)
-		http.Error(w, "Something went wrong", http.StatusInternalServerError)
-		return
-	}
-	for _, image := range images {
-		data.Images = append(data.Images, Image{
-			PostID:          post.ID,
-			Filename:        image.Filename,
-			FilenameEscaped: url.PathEscape(image.Filename),
-		})
-	}
+
 	p.Templates.Edit.Execute(w, r, data)
 }
 
@@ -99,7 +84,7 @@ func (p Posts) Update(w http.ResponseWriter, r *http.Request) {
 
 	post.Title = r.FormValue("title")
 	post.Content = r.FormValue("content")
-	err = p.PostService.Update(post)
+	err = p.PostService.Update(post) //TODO: change update to process md
 	if err != nil {
 		log.Println(err)
 		http.Error(w, "Something went wrong", http.StatusInternalServerError)
@@ -153,9 +138,10 @@ func (p Posts) Index(w http.ResponseWriter, r *http.Request) {
 func (p Posts) Show(w http.ResponseWriter, r *http.Request) {
 	post, err := p.postByID(w, r)
 	if err != nil {
+		log.Println(err)
+		http.Error(w, "Something went wrong", http.StatusInternalServerError)
 		return
 	}
-
 	type Image struct {
 		PostID          int
 		Filename        string
@@ -165,49 +151,12 @@ func (p Posts) Show(w http.ResponseWriter, r *http.Request) {
 		ID      int
 		Title   string
 		Content template.HTML
-		Images  []Image
 	}
 	data.ID = post.ID
 	data.Title = post.Title
-	//data.Content = post.Content
-	data.Content, err = p.getPostMarkdown(data.ID)
-	if err != nil {
-		log.Println(err)
-		http.Error(w, "Markdown not found", http.StatusNotFound)
-		return
-	}
-	images, err := p.PostService.Images(post.ID)
-	if err != nil {
-		log.Println(err)
-		http.Error(w, "Something went wrong", http.StatusInternalServerError)
-		return
-	}
-	for _, image := range images {
-		data.Images = append(data.Images, Image{
-			PostID:          post.ID,
-			Filename:        image.Filename,
-			FilenameEscaped: url.PathEscape(image.Filename),
-		})
-	}
-	p.Templates.Show.Execute(w, r, data)
-}
+	data.Content = post.ContentHTML
 
-func (p Posts) getPostMarkdown(id int) (template.HTML, error) {
-	markdownPath, err := p.PostService.Markdown(id)
-	if err != nil {
-		return "", err
-	}
-	postMarkdown, err := p.PostService.Sr.Read(markdownPath)
-	if err != nil {
-		return "", err
-	}
-	mdRenderer := goldmark.New() // TODO: can move it to main inorder not to create it multiple times
-	var buf bytes.Buffer
-	if err := mdRenderer.Convert([]byte(postMarkdown), &buf); err != nil {
-		return "", err
-	}
-	str := buf.String()
-	return template.HTML(str), nil
+	p.Templates.Show.Execute(w, r, data)
 }
 
 func (p Posts) Delete(w http.ResponseWriter, r *http.Request) {
@@ -347,3 +296,4 @@ func userMustOwnPost(w http.ResponseWriter, r *http.Request, post *models.Post) 
 	}
 	return nil
 }
+

@@ -4,18 +4,24 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/Depado/bfchroma/v2"
+	"github.com/microcosm-cc/bluemonday"
+	bf "github.com/russross/blackfriday/v2"
+	"html/template"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
 type Post struct {
-	ID      int    `json:"id"`
-	Title   string `json:"title"`
-	Content string `json:"content"`
-	UserID  int    `json:"user_id"`
+	ID          int
+	Title       string
+	Content     string
+	ContentHTML template.HTML
+	UserID      int
 }
 
 type Image struct {
@@ -24,13 +30,14 @@ type Image struct {
 	Filename string
 }
 
-
-
 type PostService struct {
 	DB *sql.DB
 	//ImagesDir is used to tell PostService where to store and locate images. If not set, it will default to "images"
-	ImagesDir   string
-	Sr          MarkdownReader
+	ImagesDir string
+	Mr        MarkdownReader
+	Mw        MarkdownWriter
+	//MarkdownDir is used to tell PostService where to store and locate markdown files. If not set,
+	//it will default to "markdowns"
 	MarkdownDir string
 }
 
@@ -43,25 +50,31 @@ func NewPost(title, content string, userID int) *Post {
 }
 
 func (ps *PostService) Create(title, content string, userID int) (*Post, error) {
-	query := `INSERT INTO Posts (title, content, user_id) VALUES ($1, $2, $3) RETURNING id`
+	query := `INSERT INTO Posts (title, user_id) VALUES ($1, $2) RETURNING id`
 	post := Post{
-		Title:   title,
-		Content: content,
-		UserID:  userID,
+		Title:  title,
+		UserID: userID,
 	}
 	err := ps.DB.QueryRow(query,
 		title,
-		content,
 		userID,
 	).Scan(&post.ID)
 	if err != nil {
 		return nil, fmt.Errorf("create post: %w", err)
 	}
+	dir := ps.postMarkdownDir(post.ID)
+	strId := strconv.Itoa(post.ID)
+	path := filepath.Join(dir, strId+".md")
+	err = ps.Mw.Write(path, content)
+	if err != nil {
+		return nil, fmt.Errorf("create post: %w", err)
+	}
+
 	return &post, nil
 }
 
 func (ps *PostService) GetAll() ([]Post, error) {
-	rows, err := ps.DB.Query(`SELECT id, title, content, user_id FROM Posts`)
+	rows, err := ps.DB.Query(`SELECT id, title, user_id FROM Posts`)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +83,7 @@ func (ps *PostService) GetAll() ([]Post, error) {
 	var posts []Post
 	for rows.Next() {
 		var post Post
-		if err = rows.Scan(&post.ID, &post.Title, &post.Content, &post.UserID); err != nil {
+		if err = rows.Scan(&post.ID, &post.Title, &post.UserID); err != nil {
 			return nil, err
 		}
 		posts = append(posts, post)
@@ -79,24 +92,42 @@ func (ps *PostService) GetAll() ([]Post, error) {
 }
 
 func (ps *PostService) GetByID(id int) (*Post, error) {
-	query := `SELECT id, title, content, user_id FROM Posts WHERE id = $1`
+	query := `SELECT id, title, user_id FROM Posts WHERE id = $1`
 	var post Post
-	err := ps.DB.QueryRow(query, id).Scan(&post.ID, &post.Title, &post.Content, &post.UserID)
+	err := ps.DB.QueryRow(query, id).Scan(&post.ID, &post.Title, &post.UserID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
 		}
 		return nil, err
 	}
+	markdownPath, err := ps.Markdown(id)
+	if err != nil {
+		return nil, err
+	}
+	post.Content, err = ps.getRawPostMarkdown(markdownPath)
+	if err != nil {
+		return nil, err
+	}
+	post.ContentHTML, err = ps.getPostMarkdown(markdownPath)
 	return &post, nil
 }
 
 func (ps *PostService) Update(post *Post) error {
-	_, err := ps.DB.Query(`UPDATE posts SET title=$2, content=$3 WHERE id=$1`,
-		post.ID, post.Title, post.Content)
+	_, err := ps.DB.Query(`UPDATE posts SET title=$2 WHERE id=$1`,
+		post.ID, post.Title)
 	if err != nil {
 		return fmt.Errorf("update post: %w", err)
 	}
+	dir := ps.postMarkdownDir(post.ID)
+	strId := strconv.Itoa(post.ID)
+	path := filepath.Join(dir, strId+".md")
+	post.Content = strings.TrimSpace(post.Content)
+	err = ps.Mw.Write(path, post.Content)
+	if err != nil {
+		return fmt.Errorf("update post: %w", err)
+	}
+
 	return nil
 }
 
@@ -134,22 +165,6 @@ func (ps *PostService) Image(postID int, filename string) (Image, error) {
 		Path:     imagePath,
 	}, nil
 }
-
-//func (ps *PostService) Markdown(postID int) (Markdown, error) {
-//	markdownPath := filepath.Join(ps.postMarkdownDir(postID))
-//	_, err := os.Stat(markdownPath)
-//	if err != nil {
-//		if errors.Is(err, fs.ErrNotExist) {
-//			return Markdown{}, ErrNotFound
-//		}
-//		return Image{}, fmt.Errorf("image not found: %w", err)
-//	}
-//	return Image{
-//		Filename: filename,
-//		PostID:   postID,
-//		Path:     imagePath,
-//	}, nil
-//}
 
 func (ps *PostService) Delete(id int) error {
 	_, err := ps.DB.Exec(`delete from posts where id = $1`, id)
@@ -236,7 +251,6 @@ func (ps *PostService) postMarkdownDir(id int) string {
 	return markdownDir
 }
 
-
 func hasExtension(file string, extensions []string) bool {
 	for _, ext := range extensions {
 		file = strings.ToLower(file)
@@ -254,4 +268,41 @@ func (ps *PostService) imageExtensions() []string {
 
 func (ps *PostService) imageContentTypes() []string {
 	return []string{"image/png", "image/jpg", "image/gif", "image/jpeg"}
+}
+
+func (ps *PostService) getPostMarkdown(path string) (template.HTML, error) {
+	postMarkdown, err := ps.Mr.Read(path)
+	if err != nil {
+		return "", err
+	}
+
+	b := bf.NewHTMLRenderer(bf.HTMLRendererParameters{
+		Flags: bf.CommonHTMLFlags | bf.Smartypants,
+	})
+
+	r := bfchroma.NewRenderer(bfchroma.Extend(b), bfchroma.Style("dracula"))
+	options := bf.WithExtensions(bf.CommonExtensions | bf.HardLineBreak)
+
+	fmt.Println(postMarkdown)
+	unsafe := bf.Run([]byte(postMarkdown), options ,bf.WithRenderer(r))
+	policy := bluemonday.UGCPolicy()
+	policy.AllowElements("br", "code", "pre", "blockquote", "img", "sup", "sub", "strong", "em")
+	policy.AllowAttrs("class").OnElements("pre", "code")
+	policy.AllowAttrs("src", "alt").OnElements("img")
+
+	html := policy.SanitizeBytes(unsafe)
+
+
+	fmt.Println(string(unsafe))
+	//html := bluemonday.UGCPolicy().SanitizeBytes(unsafe)
+
+	return template.HTML(html), nil
+}
+
+func (ps *PostService) getRawPostMarkdown(path string) (string, error) {
+	postMarkdown, err := ps.Mr.Read(path)
+	if err != nil {
+		return "", err
+	}
+	return postMarkdown, nil
 }
