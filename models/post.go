@@ -12,6 +12,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -22,6 +23,8 @@ type Post struct {
 	Content     string
 	ContentHTML template.HTML
 	UserID      int
+	Desc 		string
+	Tags 		[]string
 }
 
 type Image struct {
@@ -74,7 +77,7 @@ func (ps *PostService) Create(title, content string, userID int) (*Post, error) 
 }
 
 func (ps *PostService) GetAll() ([]Post, error) {
-	rows, err := ps.DB.Query(`SELECT id, title, user_id FROM Posts`)
+	rows, err := ps.DB.Query(`SELECT id, title, user_id, COALESCE(description, 'No description') FROM Posts`)
 	if err != nil {
 		return nil, err
 	}
@@ -83,24 +86,73 @@ func (ps *PostService) GetAll() ([]Post, error) {
 	var posts []Post
 	for rows.Next() {
 		var post Post
-		if err = rows.Scan(&post.ID, &post.Title, &post.UserID); err != nil {
+		if err = rows.Scan(&post.ID, &post.Title, &post.UserID, &post.Desc); err != nil {
 			return nil, err
 		}
+		tags, err := ps.GetTagsByPostID(post.ID)
+		if err != nil {
+			return nil, err
+		}
+		post.Tags = tags
 		posts = append(posts, post)
 	}
 	return posts, nil
 }
 
+func (ps *PostService) GetTagsByPostID(postID int) ([]string, error) {
+	query := `SELECT t.name AS tag_name
+		FROM Tags t
+		JOIN post_tags pt ON t.id = pt.tag_id
+		WHERE pt.post_id = $1;`
+	var tags []string
+	rows, err := ps.DB.Query(query, postID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return []string{}, nil
+		}
+		return nil, fmt.Errorf("get tags by post id %d: %w", postID, err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var tag string
+		if err = rows.Scan(&tag); err != nil {
+			return nil, fmt.Errorf("get tags by post id %d: %w", postID, err)
+		}
+		tags = append(tags, tag)
+	}
+	return tags, nil
+}
+
 func (ps *PostService) GetByID(id int) (*Post, error) {
-	query := `SELECT id, title, user_id FROM Posts WHERE id = $1`
+	query := `SELECT id, title, user_id, COALESCE(description, '') FROM Posts WHERE id = $1`
 	var post Post
-	err := ps.DB.QueryRow(query, id).Scan(&post.ID, &post.Title, &post.UserID)
+	err := ps.DB.QueryRow(query, id).Scan(&post.ID, &post.Title, &post.UserID, &post.Desc)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
 		}
 		return nil, err
 	}
+	query = `SELECT t.name AS tag_name
+		FROM Tags t
+		JOIN post_tags pt ON t.id = pt.tag_id
+		WHERE pt.post_id = $1;`
+	rows, err := ps.DB.Query(query, id)
+
+	var tags []string
+	defer rows.Close()
+
+	for rows.Next() {
+		var tag string
+		if err = rows.Scan(&tag); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				continue
+			}
+			return nil, err
+		}
+		tags = append(tags, tag)
+	}
+	post.Tags = tags
 	markdownPath, err := ps.Markdown(id)
 	if err != nil {
 		return nil, err
@@ -114,10 +166,68 @@ func (ps *PostService) GetByID(id int) (*Post, error) {
 }
 
 func (ps *PostService) Update(post *Post) error {
-	_, err := ps.DB.Query(`UPDATE posts SET title=$2 WHERE id=$1`,
-		post.ID, post.Title)
-	if err != nil {
-		return fmt.Errorf("update post: %w", err)
+	_, err := ps.DB.Query(`UPDATE posts SET title=$2, description=$3 WHERE id=$1`,
+		post.ID, post.Title, post.Desc)
+	query := `SELECT t.name AS tag_name, t.id AS tag_id 
+		FROM Tags t
+		JOIN post_tags pt ON t.id = pt.tag_id
+		WHERE pt.post_id = $1;`
+
+	var existingTags []struct {
+		Name string
+		ID   int
+	}
+
+	rows, err := ps.DB.Query(query, post.ID)
+	defer rows.Close()
+
+	for rows.Next() {
+		var tagName string
+		var tagID int
+
+		if err = rows.Scan(&tagName, &tagID); err != nil {
+			return fmt.Errorf("update post: %w", err)
+		}
+		existingTags = append(existingTags, struct {
+			Name string
+			ID   int
+		}{
+			Name: tagName,
+			ID:   tagID,
+		})
+	}
+
+	for _, tag := range existingTags {
+		if !slices.Contains(post.Tags, tag.Name) {
+			_, err = ps.DB.Query(`DELETE FROM post_tags WHERE post_id = $1 AND tag_id=$2`, post.ID, tag.ID)
+			if err != nil {
+				return fmt.Errorf("update post tags: %w", err)
+			}
+		}
+	}
+	for _, tag := range post.Tags {
+		var tagID int
+		err = ps.DB.QueryRow(`INSERT INTO tags (name) VALUES ($1) ON CONFLICT (name) DO NOTHING RETURNING id;`,
+			tag).Scan(&tagID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				err = ps.DB.QueryRow(`SELECT id FROM tags WHERE name=$1`, tag).Scan(&tagID)
+			} else {
+				return fmt.Errorf("update post: %w", err)
+			}
+		}
+		var exists bool
+		err = ps.DB.QueryRow(`SELECT EXISTS (SELECT 1 FROM post_tags WHERE post_id = $1 AND tag_id = $2)`, post.ID, tagID).Scan(&exists)
+		if err != nil {
+			return fmt.Errorf("update post: %w", err)
+		}
+		if !exists {
+			_, err = ps.DB.Query(`INSERT INTO post_tags (tag_id, post_id) VALUES ($1, $2)`, tagID, post.ID)
+			if err != nil {
+				return fmt.Errorf("update post: %w", err)
+			}
+		}
+
 	}
 	dir := ps.postMarkdownDir(post.ID)
 	strId := strconv.Itoa(post.ID)
@@ -283,7 +393,6 @@ func (ps *PostService) getPostMarkdown(path string) (template.HTML, error) {
 	r := bfchroma.NewRenderer(bfchroma.Extend(b), bfchroma.Style("dracula"))
 	options := bf.WithExtensions(bf.CommonExtensions | bf.HardLineBreak)
 
-	fmt.Println(postMarkdown)
 	unsafe := bf.Run([]byte(postMarkdown), options ,bf.WithRenderer(r))
 	policy := bluemonday.UGCPolicy()
 	policy.AllowElements("br", "code", "pre", "blockquote", "img", "sup", "sub", "strong", "em")
@@ -291,10 +400,6 @@ func (ps *PostService) getPostMarkdown(path string) (template.HTML, error) {
 	policy.AllowAttrs("src", "alt").OnElements("img")
 
 	html := policy.SanitizeBytes(unsafe)
-
-
-	fmt.Println(string(unsafe))
-	//html := bluemonday.UGCPolicy().SanitizeBytes(unsafe)
 
 	return template.HTML(html), nil
 }

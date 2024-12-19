@@ -28,17 +28,18 @@
                     </a>
 
                 </div>
-                {{/*                TODO: Desc and tags*/}}
+                {{/*                TODO: 4 tags limit*/}}
                 <div class="p-4 flex-1 flex items-start bg-orange-50">
-                    <p class="text-gray-700 text-sm">Description</p>
+                    <p class="text-gray-700 text-sm">{{.Desc}}</p>
                 </div>
-                <div class="text-xs p-2 bg-gray-100 flex-1 flex items-end">
-                    <div class="flex space-x-2">
-                        <span class="bg-gray-200 text-gray-600 px-2 py-1 rounded">tag</span>
-                        <span class="bg-gray-200 text-gray-600 px-2 py-1 rounded">tag</span>
-                        <span class="bg-gray-200 text-gray-600 px-2 py-1 rounded">tag</span>
-                        <span class="bg-gray-200 text-gray-600 px-2 py-1 rounded">tag</span>
-                    </div>
+                <div class="text-xs p-2 bg-gray-100 flex-1 flex items-center">
+                    {{range $index, $tag := .Tags}}
+                        {{if lt $index 4}}
+                            <div class="flex space-x-2">
+                                <span class="ml-1 bg-violet-100 text-violet-700 px-3 py-1 rounded flex items-center">{{$tag}}</span>
+                            </div>
+                        {{end}}
+                    {{end}}
                 </div>
             </div>
         {{end}}

@@ -1,6 +1,6 @@
 {{template "header" .}}
-<div class="p-8 ">
-    <div class="container mx-auto px-4 max-w-4xl ml-16 bg-slate-50 min-h-screen rounded">
+<div class="p-8" xmlns="http://www.w3.org/1999/html" xmlns="http://www.w3.org/1999/html">
+    <div class="container mx-auto px-4 max-w-4xl ml-16 bg-slate-50 min-h-screen rounded" data-tags="{{.Tags}}" id="tags">
         <div class="pt-4 pb-8 text-3xl font-bold text-gray-800">
             <div class="inline-flex w-full">
                 <a href="/posts/{{.ID}}">
@@ -22,7 +22,7 @@
             </div>
         </div>
 
-        <div class="lg:px-10">
+        <div class="lg:px-10 pb-8">
             <form action="/posts/{{.ID}}" method="post" id="post">
                 <div class="hidden">
                     {{csrfField}}
@@ -94,6 +94,28 @@
                         });
                     </script>
                 </div>
+                <div class="py-2">
+                    <label for="desc" class="text-small font-semibold text-gray-800">Description</label>
+                    <input name="desc" id="desc" type="text" placeholder="Post Description"
+                           class="w-full px-3 py-2 border border-color-grey-300
+                    placeholder-gray-600 text-gray-800 rounded"
+                           value="{{.Desc}}"/>
+                </div>
+                <div class="py-2">
+                    <label for="tagInput" class="text-small font-semibold text-gray-800">Tags</label>
+                    <div class="flex relative items-center">
+                        <input id="tagInput" type="text" placeholder="Post Tag"
+                               class="grow w-full px-3 py-2 border border-color-grey-300
+                   placeholder-gray-600 text-gray-800 rounded" />
+                        <button type="button" id="addTagButton"
+                                class="absolute right-0 py-1.5 px-3.5 bg-violet-600 hover:bg-violet-700 text-white text-lg font-bold rounded-r">
+                            Add
+                        </button>
+
+                    </div>
+                    <ul id="tagList" class="mt-2 flex flex-wrap gap-2"></ul>
+                    <input type="hidden" name="tags" id="hiddenTags" />
+                </div>
             </form>
         </div>
     </div>
@@ -118,6 +140,66 @@
             return line;
         });
         event.target.value = lines.join('\n');
+    });
+
+</script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const tagInput = document.getElementById("tagInput");
+        const addTagButton = document.getElementById("addTagButton");
+        const tagList = document.getElementById("tagList");
+        const hiddenTags = document.getElementById("hiddenTags");
+
+        let tags = (document.getElementById('tags').getAttribute('data-tags') || "")
+            .split(',')
+            .map(tag => tag.trim())
+            .filter(tag => tag);
+
+        function updateHiddenTags() {
+            hiddenTags.value = tags.join(",");
+        }
+
+        function renderTags() {
+            tagList.innerHTML = "";
+            tags.forEach((tag, index) => {
+                const tagElement = document.createElement("li");
+                tagElement.className = "bg-violet-100 text-violet-700 px-3 py-1 rounded flex items-center";
+                tagElement.innerHTML = `
+                ${tag}
+                <button type="button" class="ml-2 text-red-500" data-index="${index}">×</button>
+            `;
+                tagList.appendChild(tagElement);
+            });
+        }
+
+        addTagButton.addEventListener("click", () => {
+            const tag = tagInput.value.trim();
+            if (tag && !tags.includes(tag)) {
+                tags.push(tag);
+                renderTags();
+                updateHiddenTags();
+            }
+            tagInput.value = "";
+        });
+
+        tagList.addEventListener("click", (e) => {
+            if (e.target.tagName === "BUTTON") {
+                const index = e.target.getAttribute("data-index");
+                tags.splice(index, 1);
+                renderTags();
+                updateHiddenTags();
+            }
+        });
+
+        tagInput.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                addTagButton.click();
+            }
+        });
+
+        renderTags();
+        updateHiddenTags();
     });
 
 </script>

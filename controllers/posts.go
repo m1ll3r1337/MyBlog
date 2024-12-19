@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"strconv"
+	"strings"
 )
 
 type Posts struct {
@@ -45,7 +46,7 @@ func (p Posts) Create(w http.ResponseWriter, r *http.Request) {
 	data.Title = r.FormValue("title")
 	data.Content = r.FormValue("content")
 
-	post, err := p.PostService.Create(data.Title, data.Content, data.UserID) //TODO: change create to process md
+	post, err := p.PostService.Create(data.Title, data.Content, data.UserID)
 	if err != nil {
 		p.Templates.New.Execute(w, r, data, err)
 		return
@@ -57,6 +58,7 @@ func (p Posts) Create(w http.ResponseWriter, r *http.Request) {
 func (p Posts) Edit(w http.ResponseWriter, r *http.Request) {
 	post, err := p.postByID(w, r, userMustOwnPost)
 	if err != nil {
+		log.Println(err)
 		return
 	}
 	type Image struct {
@@ -68,10 +70,15 @@ func (p Posts) Edit(w http.ResponseWriter, r *http.Request) {
 		ID      int
 		Title   string
 		Content string
+		Desc    string
+		Tags    string
 	}
 	data.ID = post.ID
 	data.Title = post.Title
 	data.Content = post.Content
+	data.Desc = post.Desc
+	tagStr := strings.Join(post.Tags, ",")
+	data.Tags = strings.TrimSpace(tagStr)
 
 	p.Templates.Edit.Execute(w, r, data)
 }
@@ -84,7 +91,21 @@ func (p Posts) Update(w http.ResponseWriter, r *http.Request) {
 
 	post.Title = r.FormValue("title")
 	post.Content = r.FormValue("content")
-	err = p.PostService.Update(post) //TODO: change update to process md
+	post.Desc = r.FormValue("desc")
+
+	tagsRaw := r.FormValue("tags")
+	tags := strings.Split(tagsRaw, ",")
+
+	var processedTags []string
+	for _, tag := range tags {
+		cleanTag := strings.TrimSpace(tag)
+		cleanTag = strings.ToLower(tag)
+		if cleanTag != "" {
+			processedTags = append(processedTags, cleanTag)
+		}
+	}
+	post.Tags = processedTags
+	err = p.PostService.Update(post)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, "Something went wrong", http.StatusInternalServerError)
@@ -99,10 +120,12 @@ func (p Posts) Index(w http.ResponseWriter, r *http.Request) {
 		Title           string
 		Filename        string
 		FilenameEscaped string // TODO: unclear its an image
+		Desc            string
+		Tags            []string
 	}
 
 	var data struct {
-		Posts      []Post
+		Posts []Post
 	}
 
 	posts, err := p.PostService.GetAll()
@@ -120,16 +143,18 @@ func (p Posts) Index(w http.ResponseWriter, r *http.Request) {
 		}
 		if len(images) == 0 {
 			images = append(images, models.Image{
-				PostID:          post.ID,
-				Path: "",
+				PostID:   post.ID,
+				Path:     "",
 				Filename: "",
 			})
 		}
 		data.Posts = append(data.Posts, Post{
-			ID:    post.ID,
-			Title: post.Title,
-			Filename: images[0].Filename,
+			ID:              post.ID,
+			Title:           post.Title,
+			Filename:        images[0].Filename,
 			FilenameEscaped: url.PathEscape(images[0].Filename),
+			Desc:            post.Desc,
+			Tags:            post.Tags,
 		})
 	}
 	p.Templates.Index.Execute(w, r, data)
@@ -151,11 +176,14 @@ func (p Posts) Show(w http.ResponseWriter, r *http.Request) {
 		ID      int
 		Title   string
 		Content template.HTML
+		Desc    string
+		Tags    []string
 	}
 	data.ID = post.ID
 	data.Title = post.Title
 	data.Content = post.ContentHTML
-
+	data.Desc = post.Desc
+	data.Tags = post.Tags
 	p.Templates.Show.Execute(w, r, data)
 }
 
@@ -230,7 +258,7 @@ func (p Posts) UploadImage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	filename := fmt.Sprintf("%s",fileHeaders[0].Filename) //TODO: multi parse
+	filename := fmt.Sprintf("%s", fileHeaders[0].Filename) //TODO: multi parse
 	response := map[string]string{
 		"filename": filename, //TODO: test uploading the same image twice name colliding
 	}
@@ -296,4 +324,3 @@ func userMustOwnPost(w http.ResponseWriter, r *http.Request, post *models.Post) 
 	}
 	return nil
 }
-
