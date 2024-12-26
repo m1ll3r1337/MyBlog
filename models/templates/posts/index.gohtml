@@ -26,9 +26,7 @@
                                  src="https://t4.ftcdn.net/jpg/07/91/22/59/360_F_791225927_caRPPH99D6D1iFonkCRmCGzkJPf36QDw.jpg"/>
                         {{end}}
                     </a>
-
                 </div>
-                {{/*                TODO: 4 tags limit*/}}
                 <div class="p-4 flex-1 flex items-start bg-orange-50">
                     <p class="text-gray-700 text-sm">{{.Desc}}</p>
                 </div>
@@ -45,5 +43,27 @@
         {{end}}
     </div>
 
+    <div class="flex justify-center mt-8 space-x-4">
+        {{if gt .CurrentPage 1}}
+            <a href="/posts?page={{.PreviousPage}}"
+               class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+                </svg>
+            </a>
+        {{end}}
+        {{range $i, $page := .PageNumbers}}
+            <a href="/posts?page={{$page}}"
+               class="px-4 py-2 {{if eq $page $.CurrentPage}}bg-violet-600 text-white{{else}}bg-gray-200 hover:bg-gray-300{{end}} rounded">
+                {{$page}}
+            </a>
+        {{end}}
+        {{if lt .CurrentPage .TotalPages}}
+            <a href="/posts?page={{.NextPage}}"
+               class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                </svg>
+            </a>
+        {{end}}
+    </div>
 </div>
 {{template "footer" .}}

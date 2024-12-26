@@ -10,6 +10,7 @@ import (
 	"html/template"
 	"io"
 	"io/fs"
+	"math"
 	"os"
 	"path/filepath"
 	"slices"
@@ -76,10 +77,18 @@ func (ps *PostService) Create(title, content string, userID int) (*Post, error) 
 	return &post, nil
 }
 
-func (ps *PostService) GetAll() ([]Post, error) {
-	rows, err := ps.DB.Query(`SELECT id, title, user_id, COALESCE(description, 'No description') FROM Posts`)
+func (ps *PostService) GetPaginatedPosts(page int) ([]Post, int, error) {
+	totalNumberOfPages, err := ps.getTotalNumberOfPages()
 	if err != nil {
-		return nil, err
+		return nil, 0, err
+	}
+	limit := 20
+	offset := (page - 1) * 20
+
+	rows, err := ps.DB.Query(`SELECT id, title, user_id, COALESCE(description, 'No description')
+		FROM Posts LIMIT $1 OFFSET $2`, limit, offset)
+	if err != nil {
+		return nil, totalNumberOfPages, err
 	}
 	defer rows.Close()
 
@@ -87,16 +96,27 @@ func (ps *PostService) GetAll() ([]Post, error) {
 	for rows.Next() {
 		var post Post
 		if err = rows.Scan(&post.ID, &post.Title, &post.UserID, &post.Desc); err != nil {
-			return nil, err
+			return nil, totalNumberOfPages, err
 		}
 		tags, err := ps.GetTagsByPostID(post.ID)
 		if err != nil {
-			return nil, err
+			return nil, totalNumberOfPages, err
 		}
 		post.Tags = tags
 		posts = append(posts, post)
 	}
-	return posts, nil
+	return posts, totalNumberOfPages, nil
+}
+
+func (ps *PostService) getTotalNumberOfPages() (int, error) {
+	var count int
+	query := `SELECT COUNT(id) FROM Posts`
+	err := ps.DB.QueryRow(query).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("getTotalNumberOfPosts: %w", err)
+	}
+	count = int(math.Ceil(float64(count) / 20))
+	return count, nil
 }
 
 func (ps *PostService) GetTagsByPostID(postID int) ([]string, error) {

@@ -119,23 +119,35 @@ func (p Posts) Index(w http.ResponseWriter, r *http.Request) {
 		ID              int
 		Title           string
 		Filename        string
-		FilenameEscaped string // TODO: unclear its an image
+		FilenameEscaped string
 		Desc            string
 		Tags            []string
 	}
 
 	var data struct {
-		Posts []Post
+		Posts        []Post
+		CurrentPage  int
+		TotalPages   int
+		PageNumbers  []int
+		PreviousPage int
+		NextPage     int
 	}
 
-	posts, err := p.PostService.GetAll()
+	pageStr := r.URL.Query().Get("page")
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page < 1 {
+		page = 1
+	}
+
+	posts, totalPages, err := p.PostService.GetPaginatedPosts(page)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, "Something went wrong", http.StatusInternalServerError)
 		return
 	}
+
 	for _, post := range posts {
-		images, err := p.PostService.Images(post.ID) //TODO: multiple image retrieve
+		images, err := p.PostService.Images(post.ID)
 		if err != nil {
 			log.Println(err)
 			http.Error(w, "Something went wrong", http.StatusInternalServerError)
@@ -157,6 +169,15 @@ func (p Posts) Index(w http.ResponseWriter, r *http.Request) {
 			Tags:            post.Tags,
 		})
 	}
+
+	data.CurrentPage = page
+	data.TotalPages = totalPages
+	data.NextPage = page + 1
+	data.PreviousPage = page - 1
+	for i := 1; i <= totalPages; i++ {
+		data.PageNumbers = append(data.PageNumbers, i)
+	}
+
 	p.Templates.Index.Execute(w, r, data)
 }
 
