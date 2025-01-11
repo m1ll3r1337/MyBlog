@@ -1,17 +1,30 @@
 {{template "header" .}}
 <div class="p-8 w-full">
-    <h1 class="flex flex-grow inline pt-4 pb-8 text-3xl font-bold text-gray-800">
-        Posts
-        <a class="py-4">
-            <a href="/posts/new"
-               class="ml-8 py-2 px-8 bg-violet-600 hover:bg-violet-700 text-white text-lg rounded font-bold">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                     stroke="currentColor" class="size-6">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
-                </svg>
-            </a>
+    <div class="flex flex-1 items-center mb-8">
+        <h1 class="text-3xl font-bold text-gray-800">
+            Posts
+        </h1>
+
+        <a href="/posts/new"
+           class="ml-8 py-2 px-8 bg-violet-600 hover:bg-violet-700 text-white text-lg rounded font-bold">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                 stroke="currentColor" class="size-6">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+            </svg>
         </a>
-    </h1>
+        <form method="GET" action="/posts" class="flex items-center ml-8">
+            <input type="text" name="search" placeholder="Search posts..."
+                   value="{{.SearchQuery}}"
+                   class=" px-4 py-2 border rounded-l-lg focus:outline-none focus:ring-2 focus:ring-violet-600" />
+            <button type="submit"
+                    class="bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-r-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35m0 0a7.5 7.5 0 1 0-10.607 0 7.5 7.5 0 0 0 10.607 0z" />
+                </svg>
+            </button>
+        </form>
+    </div>
+
     <div class="grid grid-cols-4 gap-4">
         {{range .Posts}}
             <div class="bg-white rounded-lg shadow-md overflow-hidden flex flex-col h-full">

@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"html/template"
 	"log"
+	"math"
 	"net/http"
 	"net/url"
 	"path/filepath"
@@ -131,6 +132,7 @@ func (p Posts) Index(w http.ResponseWriter, r *http.Request) {
 		PageNumbers  []int
 		PreviousPage int
 		NextPage     int
+		SearchQuery  string
 	}
 
 	pageStr := r.URL.Query().Get("page")
@@ -138,14 +140,37 @@ func (p Posts) Index(w http.ResponseWriter, r *http.Request) {
 	if err != nil || page < 1 {
 		page = 1
 	}
+	var (
+		posts []*models.Post
+		totalPages int
+	)
 
-	posts, totalPages, err := p.PostService.GetPaginatedPosts(page)
-	if err != nil {
-		log.Println(err)
-		http.Error(w, "Something went wrong", http.StatusInternalServerError)
-		return
+	searchQuery := r.URL.Query().Get("search")
+
+		pagPosts, totalPages, err := p.PostService.GetPaginatedPosts(page)
+		if err != nil {
+			log.Println(err)
+			http.Error(w, "Something went wrong", http.StatusInternalServerError)
+			return
+		}
+		for _, post := range pagPosts {
+			posts = append(posts, &post)
+		}
+
+	if searchQuery != "" {
+		postIDs, err := p.PostService.SearchPosts(searchQuery)
+		if err != nil {
+			log.Println(err)
+			http.Error(w, "Something went wrong", http.StatusInternalServerError)
+			return
+		}
+		for _, postID := range postIDs {
+			post, _ := p.PostService.GetByID(postID)
+
+			posts = append(posts, post)
+		}
+		totalPages = int(math.Ceil(float64(len(posts)) / 20))
 	}
-
 	for _, post := range posts {
 		images, err := p.PostService.Images(post.ID)
 		if err != nil {
@@ -174,6 +199,7 @@ func (p Posts) Index(w http.ResponseWriter, r *http.Request) {
 	data.TotalPages = totalPages
 	data.NextPage = page + 1
 	data.PreviousPage = page - 1
+	data.SearchQuery = searchQuery
 	for i := 1; i <= totalPages; i++ {
 		data.PageNumbers = append(data.PageNumbers, i)
 	}

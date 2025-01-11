@@ -13,3 +13,4 @@ CREATE TABLE IF NOT EXISTS post_tags
 -- +goose StatementBegin
 DROP TABLE post_tags;
 -- +goose StatementEnd
+

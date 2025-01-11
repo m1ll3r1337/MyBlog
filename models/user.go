@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/crypto/bcrypt"
 	"strings"
@@ -69,10 +70,16 @@ func (us *UserService) Authenticate(email, password string) (*User, error) {
 	row := us.DB.QueryRow(`SELECT id, password from Users WHERE email = $1`, email)
 	err := row.Scan(&user.ID, &user.Password)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotAuthenticated
+		}
 		return nil, fmt.Errorf("authenticate: %w", err)
 	}
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
 	if err != nil {
+		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+			return nil, ErrNotAuthenticated
+		}
 		return nil, fmt.Errorf("authenticate: %w", err)
 	}
 	return user, nil

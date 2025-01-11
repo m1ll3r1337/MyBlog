@@ -34,28 +34,34 @@
 
     </header>
     {{if errors}}
+        <div id="alert-box" class="alert">
         <div class="py-4 px-2">
             <div class="flex closeable bg-red-100 rounded px-2 py-2 text-red-800 mb-2">
                 <div class="flex-grow">
                     {{errors}}
                 </div>
-                <a href="#" onclick="closeAlert(event)">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                         stroke="currentColor" class="size-6">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-                    </svg>
-                </a>
+                    <a href="#" onclick="closeAlert(event)">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                             stroke="currentColor" class="size-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+                        </svg>
+                    </a>
+                </div>
             </div>
         </div>
     {{end}}
+    <script>
+        function closeAlert(event) {
+            event.preventDefault();
+            const alertBox = document.getElementById('alert-box');
+            if (alertBox) {
+                alertBox.classList.add('hidden');
+            }
+        }
+    </script>
 {{end}}
 
-<script>
-    function closeAlert(event) {
-        let closeable = event.target.closest(".closeable");
-        closeable.remove()
-    }
-</script>
+
 
 {{define "footer"}}
     </body>

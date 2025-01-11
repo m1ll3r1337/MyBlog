@@ -119,6 +119,39 @@ func (ps *PostService) getTotalNumberOfPages() (int, error) {
 	return count, nil
 }
 
+func (ps *PostService) SearchPosts(urlQuery string) ([]int, error) {
+	var postIDs []int
+	query := `SELECT 
+					DISTINCT (p.id)
+				FROM 
+					posts p
+				LEFT JOIN 
+					post_tags pt ON p.id = pt.post_id
+				LEFT JOIN tags t ON pt.tag_id = t.id	
+				WHERE
+					similarity(p.title, $1) > 0.3 OR
+					similarity(p.description, $1) > 0.3 OR
+					(t.name IS NOT NULL AND similarity(t.name, $1) > 0.3)
+				ORDER BY 
+					p.id DESC;
+				`
+	rows, err := ps.DB.Query(query, urlQuery)
+	if err != nil {
+		return nil, fmt.Errorf("searchPosts: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id int
+
+		err = rows.Scan(&id)
+		if err != nil {
+			return nil, fmt.Errorf("searchPosts: %w", err)
+		}
+		postIDs = append(postIDs, id)
+	}
+	return postIDs, nil
+}
+
 func (ps *PostService) GetTagsByPostID(postID int) ([]string, error) {
 	query := `SELECT t.name AS tag_name
 		FROM Tags t

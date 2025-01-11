@@ -11,6 +11,7 @@ import (
 var (
 	ErrNotFound   = errors.New("recourse could not be found")
 	ErrEmailTaken = errors.New("models: email already taken")
+	ErrNotAuthenticated = errors.New("models: not authenticated")
 )
 
 type FileError struct {

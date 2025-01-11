@@ -74,19 +74,26 @@ func (u Users) ProcessSignIn(w http.ResponseWriter, r *http.Request) {
 	var data struct {
 		Email    string
 		Password string
+
 	}
 	data.Email = r.FormValue("email")
 	data.Password = r.FormValue("password")
 	user, err := u.UserService.Authenticate(data.Email, data.Password)
 	if err != nil {
+		if errors.Is(err, models.ErrNotAuthenticated) {
+			err = errors.Public(err, "Wrong email or password")
+		}
+		u.Templates.SignIn.Execute(w,r, data, err)
 		log.Println(err)
-		http.Error(w, "Wrong credentials", http.StatusInternalServerError)
 		return
 	}
 	session, err := u.SessionService.Create(user.ID)
 	if err != nil {
+		if errors.Is(err, models.ErrNotAuthenticated) {
+			err = errors.Public(err, "Wrong email or password")
+		}
+		u.Templates.SignIn.Execute(w,r, data, err)
 		log.Println(err)
-		http.Error(w, "Wrong credentials", http.StatusInternalServerError)
 		return
 	}
 	setCookie(w, CookieSession, session.Token)
